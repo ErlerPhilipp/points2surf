@@ -1,12 +1,14 @@
-pytorch  # conda install pytorch torchvision cudatoolkit=10.0 -c pytorch
-#tensorflow  # only for tensorboard, conda install -c conda-forge tensorflow
-# tensorboardX  # could probably be replaced now, pip install tensorboardX
-#triangle  # (conda doesn’t work for triangle), pip install triangle
-scikit-learn  # evaluation, f1-score etc, conda install scikit-learn
-libspatialindex  # necessary for trimesh, conda install -c conda-forge libspatialindex
-trimesh  # point-mesh distance, pip install trimesh[easy] or conda install -c conda-forge trimesh plus the next 2
-shapely  # for trimesh, conda install -c conda-forge shapely
-rtree  # for trimesh, conda install -c conda-forge rtree
-#psutil  # starting tensorboard
-scikit-image  # watershed, flood-fill, conda install -c anaconda scikit-image
-numpy  # always numpy, conda install -c conda-forge numpy
+numpy>=1.18.1
+scipy>=1.4.1
+scikit-learn>=0.16.2  # evaluation, f1-score etc
+scikit-image>=0.22.1  # watershed, flood-fill
+cudatoolkit>=10.0.130
+torch>=1.2.0
+torchvision>=0.4.0
+tensorboard>=2.1.0
+zlib>=1.2.11
+libspatialindex>=1.9.3  # for trimesh
+shapely>=1.7.0  # for trimesh
+rtree>=0.9.4  # for trimesh
+trimesh>=3.5.24  # signed distance
+tqdm>=4.43.0  # progress bar
