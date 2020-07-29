@@ -1,3 +1,7 @@
+# Turn your point clouds into a dataset that the network can use.
+# Put your point clouds (accepted formats are ['.off', '.ply', '.obj', '.stl']) in '00_base_pc'.
+# You may need to change the hard-coded dataset name in the main from 'datasets = ['real_world', ]' to your dataset.
+
 import numpy as np
 import os
 import random
@@ -71,6 +75,8 @@ def convert_point_clouds(in_dir_abs, out_dir_abs, out_dir_npy_abs, target_file_t
     :param out_dir_abs:
     :param out_dir_npy_abs:
     :param target_file_type: ending of wanted mesh file, e.g. '.ply'
+    :param target_num_points: limit the number of points in the point cloud with random sub-sampling
+    :param num_processes:
     :return:
     """
 
@@ -82,7 +88,7 @@ def convert_point_clouds(in_dir_abs, out_dir_abs, out_dir_npy_abs, target_file_t
             mesh_files.append(os.path.join(root, name))
 
     allowed_mesh_types = ['.off', '.ply', '.obj', '.stl']
-    mesh_files = list(filter(lambda f: (f[-4:] in allowed_mesh_types), mesh_files))
+    mesh_files = list(filter(lambda mesh_file: (mesh_file[-4:] in allowed_mesh_types), mesh_files))
 
     calls = []
     for fi, f in enumerate(mesh_files):
@@ -136,23 +142,19 @@ def make_dataset_splits(base_dir, dataset_dir, final_out_dir, seed=42, only_test
 
 def main(dataset_name: str):
 
-    #base_dir = '/data/datasets/own/'
-    base_dir = '../../datasets'
-    # base_dir = '/home/dlmain/perler/meshnet/datasets/'
+    base_dir = 'datasets'
     #num_processes = 1
-    num_processes = 14  # 16 processes need up to 64 GB RAM for the signed distances
+    num_processes = 7  # 16 processes need up to 64 GB RAM for the signed distances
 
-    # dataset_dir = 'implicit_surf_13'
-    # dataset_dir = 'implicit_surf_0'
     dataset_dir = dataset_name
 
     print('Processing dataset: ' + os.path.join(base_dir, dataset_dir))
 
-    # no signed distances needed, therefore less strict requirements for input meshes
+    # no signed distances needed
     only_for_evaluation = True
 
     print('### convert base meshes to ply')
-    convert_point_clouds(in_dir_abs=os.path.join(base_dir, dataset_dir, '00_base_meshes'),
+    convert_point_clouds(in_dir_abs=os.path.join(base_dir, dataset_dir, '00_base_pc'),
                          out_dir_abs=os.path.join(base_dir, dataset_dir, '04_pts_vis'),
                          out_dir_npy_abs=os.path.join(base_dir, dataset_dir, '04_pts'),
                          target_file_type='.xyz', target_num_points=50000, num_processes=num_processes)
@@ -163,8 +165,7 @@ def main(dataset_name: str):
 
 
 if __name__ == "__main__":
-    #datasets = ['test_original', 'test_noisefree', 'test_dense', 'test_extra_noisy', 'test_sparse', 'implicit_surf_14']
-    datasets = ['test_real_world']
+    datasets = ['real_world', ]
 
     for d in datasets:
         main(d)

@@ -1,3 +1,7 @@
+# This rather messy code converts our datasets into a format that DeepSDF can use.
+# To use it on your own data you may need to change some hard-coded paths and constants in the main.
+# Also, you need meshlabserver for some mesh cleaning.
+
 import os
 import trimesh
 import trimesh.repair
@@ -6,63 +10,6 @@ import numpy as np
 from source import sdf
 from source.base import utils_mp
 from source.base import file_utils
-
-
-def _fill_holes(in_mesh, out_mesh):
-
-    mesh = None
-    try:
-        mesh = trimesh.load(in_mesh)
-    except AttributeError as e:
-        print(e)
-    except IndexError as e:
-        print(e)
-    except ValueError as e:
-        print(e)
-    except NameError as e:
-        print(e)
-
-    if mesh is not None:
-        try:
-            file_utils.make_dir_for_file(out_mesh)
-            if not mesh.is_watertight:
-                holes_filled = trimesh.repair.fill_holes(mesh)
-                if holes_filled:
-                    mesh.export(out_mesh)
-                else:
-                    print('Holes in mesh could not be filled: {}'.format(in_mesh))
-            else:
-                mesh.export(out_mesh)
-        except ValueError as e:
-            print(e)
-
-
-def fill_holes(in_dir_abs, out_dir_abs, num_processes: int):
-    """
-    Convert a mesh file to another file type.
-    :param in_dir_abs:
-    :param out_dir_abs:
-    :return:
-    """
-
-    os.makedirs(out_dir_abs, exist_ok=True)
-
-    mesh_files = []
-    for root, dirs, files in os.walk(in_dir_abs, topdown=True):
-        for name in files:
-            mesh_files.append(os.path.join(root, name))
-
-    allowed_mesh_types = ['.off', '.ply', '.obj', '.stl']
-    mesh_files = list(filter(lambda f: (f[-4:] in allowed_mesh_types), mesh_files))
-
-    calls = []
-    for fi, f in enumerate(mesh_files):
-        file_base_name = os.path.basename(f)
-        file_out = os.path.join(out_dir_abs, file_base_name)
-        if file_utils.call_necessary(f, file_out):
-            calls.append((f, file_out))
-
-    utils_mp.start_process_pool(_fill_holes, calls, num_processes)
 
 
 def _convert_pc(in_pc, out_pc):
@@ -123,73 +70,6 @@ def convert_pcs(in_dir_abs, out_dir_abs, file_set, num_processes):
             calls.append((f, file_out))
 
     utils_mp.start_process_pool(_convert_pc, calls, num_processes)
-
-
-def _get_and_save_query_pts(
-        file_in_mesh: str, file_in_query_pts: str, file_out_query_dist: str, file_out_query_vis: str,
-        signed_distance_batch_size=1000, debug=False):
-
-    in_mesh = trimesh.load(file_in_mesh)
-
-    # get query pts
-    query_pts_ms = np.load(file_in_query_pts)
-
-    # get signed distance
-    query_dist_ms = sdf.get_signed_distance(
-        in_mesh, query_pts_ms, signed_distance_batch_size)
-    # fix NaNs, Infs and truncate
-    nan_ids = np.isnan(query_dist_ms)
-    inf_ids = np.isinf(query_dist_ms)
-    query_dist_ms[nan_ids] = 0.0
-    query_dist_ms[inf_ids] = 1.0
-    query_dist_ms[query_dist_ms < -1.0] = -1.0
-    query_dist_ms[query_dist_ms > 1.0] = 1.0
-    np.save(file_out_query_dist, query_dist_ms.astype(np.float32))
-
-    if debug and file_out_query_vis is not None:
-        # save visualization
-        sdf.visualize_query_points(query_pts_ms, query_dist_ms, file_out_query_vis)
-
-
-def get_query_pts_dist_ms(
-        dir_in_mesh_abs,
-        dir_in_query_pts_ms_abs,
-        dir_out_query_dist_ms_abs,
-        dir_out_query_vis_abs,
-        test_set_file: str,
-        signed_distance_batch_size=1000,
-        num_processes=8,
-        debug=False):
-
-    import os.path
-    from source.base import file_utils
-
-    if not os.path.isfile(test_set_file):
-        print('WARNING: dataset is missing a set file: {}'.format(test_set_file))
-        return
-    files_in_test_set = open(test_set_file).readlines()
-    files_in_test_set = set([f.replace('\n', '') for f in files_in_test_set])
-
-    os.makedirs(dir_out_query_dist_ms_abs, exist_ok=True)
-    if debug:
-        os.makedirs(dir_out_query_vis_abs, exist_ok=True)
-
-    # get query points
-    call_params = []
-    files_mesh = [f for f in os.listdir(dir_in_mesh_abs)
-                  if os.path.isfile(os.path.join(dir_in_mesh_abs, f)) and f[-4:] == '.ply']
-    files_mesh = list(filter(lambda f: (os.path.basename(f)[:-4] in files_in_test_set), files_mesh))
-    for fi, f in enumerate(files_mesh):
-        file_in_mesh = os.path.join(dir_in_mesh_abs, f)
-        file_in_query_pts = os.path.join(dir_in_query_pts_ms_abs, f[:-4] + '.xyz.npy')
-        file_out_query_dist = os.path.join(dir_out_query_dist_ms_abs, f + '.npy')
-        file_out_query_vis = os.path.join(dir_out_query_vis_abs, f + '.ply')
-
-        if file_utils.call_necessary([file_in_mesh, file_in_query_pts], file_out_query_dist):
-            call_params.append((file_in_mesh, file_in_query_pts, file_out_query_dist, file_out_query_vis,
-                                signed_distance_batch_size, debug))
-
-    utils_mp.start_process_pool(_get_and_save_query_pts, call_params, num_processes)
 
 
 def _convert_sdf(file_in_query_pts, file_in_sdf, out_pc):
@@ -272,21 +152,13 @@ def _make_sdf_samples_from_pc(file_in_pts, file_in_normal, file_in_mesh, out_pc)
     far_sdf_samples_neg = np.zeros((random_samples_unit_cube_neg.shape[0], 4), dtype=np.float32)
     far_sdf_samples_neg[:, 0:3] = random_samples_unit_cube_neg
     far_sdf_samples_neg[:, 3] = random_samples_unit_cube_sd_neg
-#
-#    # cat close and far sdf samples
-#    pc_sdf_pos = np.concatenate((close_sdf_samples_pos, far_sdf_samples_pos), axis=0)
-#    pc_sdf_neg = np.concatenate((close_sdf_samples_neg, far_sdf_samples_neg), axis=0)
-#
-#    np.savez(out_pc, pos=pc_sdf_pos, neg=pc_sdf_neg)
-#    np.savez(out_pc, pos=close_sdf_samples_neg, neg=close_sdf_samples_pos)
+
     np.savez(out_pc, pos=close_sdf_samples_neg, neg=close_sdf_samples_pos,
              pos_far=far_sdf_samples_pos, neg_far=far_sdf_samples_neg)
 
     # debug: save visualization
     file_out_query_vis = out_pc + '.ply'
-    # query_pts_ms = np.concatenate((query_pts_pos, query_pts_neg))
     query_pts_ms = np.concatenate((query_pts_pos, query_pts_neg, random_samples_unit_cube_pos, random_samples_unit_cube_neg))
-    # query_dist_ms = np.concatenate((signed_dist_pos, signed_dist_neg))
     query_dist_ms = np.concatenate((signed_dist_pos, signed_dist_neg, random_samples_unit_cube_sd_pos, random_samples_unit_cube_sd_neg))
     sdf.visualize_query_points(query_pts_ms, query_dist_ms, file_out_query_vis)
     print('wrote vis to {}'.format(file_out_query_vis))
@@ -417,7 +289,6 @@ def create_example(train_set, test_set, out_dir_examples, dataset):
     def get_set_file_string(set_file):
         with open(set_file, "r") as set_file:
             set_files = set_file.readlines()
-        #file_stems = [f.split('.', 1)[0] for f in set_files]
         json_file_list = ['\t\t\t"{f}",'.format(f=f.replace('\n', '')) for f in set_files]
         json_file_list[-1] = json_file_list[-1][:-1]  # remove trailing comma of last entry
         return '\n'.join(json_file_list)
@@ -460,7 +331,6 @@ def apply_meshlab_filter(base_dir, dataset_dir, in_dir, out_dir, num_processes, 
         poisson_rec_mesh_abs = os.path.join(out_mesh_dir_abs, pts_file)
         if file_utils.call_necessary(pts_file_abs, poisson_rec_mesh_abs):
             cmd_args = ' -i {} -o {} -s {} --verbose'.format(pts_file_abs, poisson_rec_mesh_abs, filter_file)
-            #cmd_args = ' -i \'{}\' -o \'{}\' -s \'{}\' --verbose'.format(pts_file_abs, poisson_rec_mesh_abs, filter_file)
             calls.append((meshlabserver_bin + cmd_args,))
 
     utils_mp.start_process_pool(utils_mp.mp_worker, calls, num_processes)
@@ -471,51 +341,39 @@ def main():
     num_processes = 12
     #num_processes = 1
 
-    #meshlabserver = '~/repos/meshlab/src/distrib/meshlabserver'
-    meshlabserver = '/home/perler/repos/meshlab/src/distrib/meshlabserver'
-    hole_filling_mesh_simp_script = 'datasets/hole_filling_mesh_simp.mlx'
+    base_dir = 'datasets'
+    meshlabserver = '~/repos/meshlab/src/distrib/meshlabserver'
+    hole_filling_mesh_simp_script = 'hole_filling_mesh_simp.mlx'
+    out_dir_examples = '~/repos/DeepSDF/examples/'
 
-    #datasets = ['test_original', 'test_noisefree', 'test_dense', 'test_extra_noisy', 'test_sparse',
-    #            'implicit_surf_14_extra_noisy', 'implicit_surf_14_noisefree', 'implicit_surf_14', 'test_real_world',
-    #            'thingi10k_scans_original', 'thingi10k_scans_extra_noisy', 'thingi10k_scans_noisefree',
-    #            'thingi10k_scans_sparse', 'thingi10k_scans_dense']
+    datasets = [
+        'abc', 'abc_extra_noisy', 'abc_noisefree',
+        'famous_original', 'famous_noisefree', 'famous_dense', 'famous_extra_noisy', 'famous_sparse',
+        'thingi10k_scans_original', 'thingi10k_scans_dense', 'thingi10k_scans_sparse',
+        'thingi10k_scans_extra_noisy', 'thingi10k_scans_noisefree',
+        'real_world'
+    ]
 
-    base_dir = '../../datasets'
     for dataset in datasets:
         print('Processing {}'.format(dataset))
 
-        dir_mesh_abs = os.path.join(base_dir, dataset, '03_meshes')
-        dir_mesh_repaired_abs = os.path.join(base_dir, dataset, '05_meshes_repaired')
+        dir_mesh = '03_meshes'
+        dir_mesh_repaired = '05_meshes_repaired'
+        dir_mesh_repaired_abs = os.path.join(base_dir, dataset, dir_mesh_repaired)
         dir_pc = os.path.join(base_dir, dataset, '04_pts')
         dir_query_pts = os.path.join(base_dir, dataset, '05_query_pts')
-        dir_out_query_vis_abs = os.path.join(base_dir, dataset, '05_query_vis_from_pts')
         dir_sdf_abs = os.path.join(base_dir, dataset, '05_query_dist')
         dir_normals_abs = os.path.join(base_dir, dataset, '06_normals_pcpnet')
-        dir_sdf_from_pts_abs = os.path.join(base_dir, dataset, '05_query_dist_from_pts')
         test_set = os.path.join(base_dir, dataset, 'testset.txt')
         train_set = os.path.join(base_dir, dataset, 'trainset.txt')
         out_dir_pc_abs = '/home/perler/repos/DeepSDF/data/SurfaceSamples/' + dataset + '/03_meshes/'
         out_dir_sdf_abs = '/home/perler/repos/DeepSDF/data/SdfSamples/' + dataset + '/03_meshes/'
 
-        # get signed distances for point cloud (only test set)
-        ## fill holes in input meshes
-        #fill_holes(in_dir_abs=dir_mesh_abs,
-        #           out_dir_abs=dir_mesh_repaired,
-        #           num_processes=num_processes)
-
-        apply_meshlab_filter(base_dir=base_dir, dataset_dir=dataset, in_dir='03_meshes',
-                             out_dir='05_meshes_repaired', num_processes=num_processes,
+        # during DeepSDF reconstruction, we use GT signed distances for the SDF samples far from the surface
+        # we fill possible holes with Meshlab
+        apply_meshlab_filter(base_dir=base_dir, dataset_dir=dataset, in_dir=dir_mesh,
+                             out_dir=dir_mesh_repaired, num_processes=num_processes,
                              filter_file=hole_filling_mesh_simp_script, meshlabserver_bin=meshlabserver)
-
-        #get_query_pts_dist_ms(
-        #    dir_in_mesh_abs=dir_mesh_repaired_abs,
-        #    dir_in_query_pts_ms_abs=dir_pc,
-        #    dir_out_query_dist_ms_abs=dir_sdf_from_pts_abs,
-        #    dir_out_query_vis_abs=dir_out_query_vis_abs,
-        #    test_set_file=test_set,
-        #    signed_distance_batch_size=500,
-        #    num_processes=num_processes,
-        #    debug=True)
 
         # GT samples for evaluation (Chamfer distance)
         # this should be directly on the surface (no noise) or it will result in wrong Chamfer distances
@@ -539,7 +397,6 @@ def main():
             num_processes=num_processes)
 
         # make examples
-        out_dir_examples = '/home/perler/repos/DeepSDF/examples/'
         create_example(train_set=train_set, test_set=test_set, out_dir_examples=out_dir_examples, dataset=dataset)
 
 

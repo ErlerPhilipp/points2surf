@@ -1,0 +1,22 @@
+<!DOCTYPE FilterScript>
+<FilterScript>
+ <filter name="Compute normals for point sets">
+  <Param type="RichInt" description="Neighbour num" name="K" value="10" tooltip="The number of neighbors used to estimate normals."/>
+  <Param type="RichInt" description="Smooth Iteration" name="smoothIter" value="0" tooltip="The number of smoothing iteration done on the p used to estimate and propagate normals."/>
+  <Param type="RichBool" description="Flip normals w.r.t. viewpoint" name="flipFlag" value="false" tooltip="If the 'viewpoint' (i.e. scanner position) is known, it can be used to disambiguate normals orientation, so that all the normals will be oriented in the same direction."/>
+  <Param type="RichPoint3f" x="0" y="0" description="Viewpoint Pos." name="viewPos" z="0" tooltip="The viewpoint position can be set by hand (i.e. getting the current viewpoint) or it can be retrieved from mesh camera, if the viewpoint position is stored there."/>
+ </filter>
+ <xmlfilter name="Screened Poisson Surface Reconstruction">
+  <xmlparam name="cgDepth" value="0"/>
+  <xmlparam name="confidence" value="false"/>
+  <xmlparam name="depth" value="8"/>
+  <xmlparam name="fullDepth" value="5"/>
+  <xmlparam name="iters" value="8"/>
+  <xmlparam name="pointWeight" value="4"/>
+  <xmlparam name="preClean" value="false"/>
+  <xmlparam name="samplesPerNode" value="1.5"/>
+  <xmlparam name="scale" value="1.1"/>
+  <xmlparam name="visibleLayer" value="false"/>
+ </xmlfilter>
+ <filter name="Delete Current Mesh"/>
+</FilterScript>

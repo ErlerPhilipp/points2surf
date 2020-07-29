@@ -28,8 +28,6 @@ if __name__ == '__main__':
     train_set = 'trainset.txt'
     val_set = 'valset.txt'
     test_set = 'testset.txt'
-    #test_set = 'testset_remainder.txt'
-    #test_set = 'testset_mini.txt'
 
     # features = ['imp_surf', 'patch_pts_ids', 'p_index']  # l2-loss
     features = ['imp_surf_magnitude', 'imp_surf_sign', 'patch_pts_ids', 'p_index']  # l2-loss(abs) + BCE-loss
@@ -47,9 +45,8 @@ if __name__ == '__main__':
 
     fixed_radius = False
     patch_radius = 0.1 if fixed_radius else 0.0
-    single_transformer = 0  # 0: two transformers for the global and local information,
-                            # rotate local points with matrix trained from global points
-                            # 1: single transformer for both local and global points'
+    single_transformer = 0
+    shared_transformer = 0
 
     # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
@@ -60,8 +57,8 @@ if __name__ == '__main__':
         '--outdir', 'models',
         '--trainset', train_set,
         '--testset', val_set,
-        '--net_size', str(512),
-        '--nepoch', str(10),
+        '--net_size', str(1024),
+        '--nepoch', str(100),
         '--lr', str(0.01),
         '--debug', str(0),
         '--workers', str(workers),
@@ -72,26 +69,25 @@ if __name__ == '__main__':
         '--cache_capacity', str(10),
         '--patch_radius', str(patch_radius),
         '--single_transformer', str(single_transformer),
-        #'--shared_transformer', str(single_transformer),
+        '--shared_transformer', str(shared_transformer),
         '--patch_center', 'mean',
         '--training_order', 'random_shape_consecutive',
-        # '--use_point_stn', str(0),
-        '--uniform_subsample', str(1),
+        '--use_point_stn', str(1),
+        '--uniform_subsample', str(0),
         '--outputs',
-                       ]
+    ]
     train_params += features
 
     eval_params = [
                    '--indir', in_dir,
                    '--outdir', out_dir,
                    '--dataset', val_set,
-                   # '--modelpostfix', '_model_5.pth',
                    '--models', model_name,
                    '--batchSize', str(batch_size),
                    '--workers', str(workers),
                    '--cache_capacity', str(5),
                    '--patch_features',
-                   ]
+    ]
     eval_params += features
 
     # train model on GT data with multiple query points per patch
@@ -108,10 +104,6 @@ if __name__ == '__main__':
         unsigned=False)
 
     # use model to reconstruct datasets
-    #testsets = ['test_original', 'test_noisefree', 'test_sparse',
-    #            'test_dense', 'test_extra_noisy', 'test_real_world',
-    #            'thingi10k_scans_original', 'thingi10k_scans_extra_noisy', 'thingi10k_scans_noisefree',
-    #            'thingi10k_scans_sparse', 'thingi10k_scans_dense'] + [dataset]
     testsets = ['minimal', ]
     for testset in testsets:
         out_dir = os.path.join('results', model_name, testset)
@@ -124,7 +116,6 @@ if __name__ == '__main__':
                        '--dataset', test_set,
                        '--query_grid_resolution', str(grid_resolution),
                        '--reconstruction', str(True),
-                       # '--modelpostfix', '_model_200.pth',
                        '--models', model_name,
                        '--batchSize', str(batch_size),
                        '--workers', str(workers),
