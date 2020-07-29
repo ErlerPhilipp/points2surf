@@ -1,0 +1,25 @@
+name: p2s
+channels:
+  - pytorch
+  - anaconda
+  - conda-forge
+  - defaults
+dependencies:
+  - cudatoolkit=10.0.130=0
+  - libspatialindex=1.9.3=he025d50_3
+  - numpy=1.18.1=py37hc71023c_0
+  - pip=20.0.2=py37_1
+  - python=3.7.6=h60c2a47_2
+  - pytorch=1.2.0=py3.7_cuda100_cudnn7_1
+  - rtree=0.9.4=py37hbf79ddb_0
+  - scikit-image=0.16.2=py37h47e9c7a_0
+  - scikit-learn=0.22.1=py37h6288b17_0
+  - scipy=1.4.1=py37h9439919_0
+  - torchvision=0.4.0=py37_cu100
+  - zlib=1.2.11=h62dcd97_3
+  - shapely==1.7.0
+  - pip:
+    - tensorboard==2.1.0
+    - trimesh==3.5.24
+    - tqdm=4.43.0
+
