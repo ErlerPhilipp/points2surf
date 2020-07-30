@@ -58,18 +58,6 @@ def parse_arguments(args=None):
                         help='number of data loading workers - 0 means same thread as main execution')
     parser.add_argument('--cache_capacity', type=int, default=100,
                         help='Max. number of dataset elements (usually shapes) to hold in the cache at the same time.')
-    parser.add_argument('--patch_features', type=str, nargs='+', default=
-                        ['imp_surf', 'imp_surf_magnitude', 'imp_surf_sign', 'patch_pts_ids', 'p_index'],
-                        help='outputs of the network, a list with elements of:\n'
-                        'unoriented_normals: unoriented (flip-invariant) point normals\n'
-                        'oriented_normals: oriented point normals\n'
-                        'max_curvature: maximum curvature\n'
-                        'min_curvature: minimum curvature\n'
-                        'p_index: output debug info to validate the model\n'
-                        'imp_surf: distance from query point to patch\n'
-                        'imp_surf_magnitude: magnitude for distance from query point to patch\n'
-                        'imp_surf_sign: sign for distance from query point to patch\n'
-                        'patch_pts_ids: ids for all points in a patch')
 
     opt = parser.parse_args(args=args)
     if len(opt.dataset) == 1:
@@ -120,7 +108,7 @@ def make_dataset(train_opt, eval_opt):
     dataset = data_loader.PointcloudPatchDataset(
         root=eval_opt.indir, shape_list_filename=eval_opt.dataset,
         points_per_patch=train_opt.points_per_patch,
-        patch_features=eval_opt.patch_features,
+        patch_features=train_opt.patch_features,
         seed=eval_opt.seed,
         center=train_opt.patch_center,
         cache_capacity=eval_opt.cache_capacity,
@@ -183,9 +171,9 @@ def make_regressor(train_opt, pred_dim, model_filename, device):
     return meshnet
 
 
-def post_process(batch_pred, eval_opt, output_ids, output_pred_ind, patch_radius, fixed_radius):
+def post_process(batch_pred, train_opt, output_ids, output_pred_ind, patch_radius, fixed_radius):
     # post-processing of the prediction
-    if 'imp_surf' in eval_opt.patch_features:
+    if 'imp_surf' in train_opt.patch_features:
         oi_imp = output_ids['imp'][0]
         imp_surf_pred = batch_pred[:, output_pred_ind[oi_imp]:output_pred_ind[oi_imp] + 1]
         imp_surf_pred = sdf_nn.post_process_distance(pred=imp_surf_pred)
@@ -193,7 +181,7 @@ def post_process(batch_pred, eval_opt, output_ids, output_pred_ind, patch_radius
             imp_surf_pred *= patch_radius.unsqueeze(dim=1)
         batch_pred[:, output_pred_ind[oi_imp]:output_pred_ind[oi_imp] + 1] = \
             imp_surf_pred
-    if 'imp_surf_magnitude' in eval_opt.patch_features:
+    if 'imp_surf_magnitude' in train_opt.patch_features:
         oi_ism = output_ids['ism'][0]
         imp_surf_mag_pred = batch_pred[:, output_pred_ind[oi_ism]:output_pred_ind[oi_ism] + 1]
         imp_surf_mag_pred = sdf_nn.post_process_magnitude(pred=imp_surf_mag_pred)
@@ -201,7 +189,7 @@ def post_process(batch_pred, eval_opt, output_ids, output_pred_ind, patch_radius
             imp_surf_mag_pred *= patch_radius.unsqueeze(dim=1)
         batch_pred[:, output_pred_ind[oi_ism]:output_pred_ind[oi_ism] + 1] = \
             imp_surf_mag_pred
-    if 'imp_surf_sign' in eval_opt.patch_features:
+    if 'imp_surf_sign' in train_opt.patch_features:
         oi_iss = output_ids['iss'][0]
         imp_surf_sig_pred = batch_pred[:, output_pred_ind[oi_iss]:output_pred_ind[oi_iss] + 1]
         imp_surf_sig_pred = sdf_nn.post_process_sign(pred=imp_surf_sig_pred)
@@ -383,7 +371,7 @@ def eval_meshnet(eval_opt):
             with torch.no_grad():
                 batch_pred = meshnet(batch_data)
 
-            post_process(batch_pred, eval_opt, output_ids, output_pred_ind, patch_radius, fixed_radius)
+            post_process(batch_pred, train_opt, output_ids, output_pred_ind, patch_radius, fixed_radius)
 
             # if batch_id % 10 == 0:
             #     print('[%s %d/%d] shape %s' % (model_name, batch_id, num_batch-1, dataset.shape_names[shape_ind]))

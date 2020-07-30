@@ -63,7 +63,8 @@ python models/download_models_ablation.py
 python full_eval.py
 ```
 This outputs meshes from the test sets using the vanilla model described in the paper.
-To use other models and datasets, either modify the `full_eval.py`, edit the default arguments defined in the first lines of `source/points_to_surf_eval.py` or modify and run the scripts in the `experiments` directory.
+To use other models and datasets, either modify the `full_eval.py`, edit the default arguments defined in the first lines of `source/points_to_surf_eval.py` or modify and run the scripts in the `experiments` directory (call from root dir).
+The evaluation experiments are meant for a normal PC with e.g. a 1070 GTX.
 
 
 ## Training
@@ -76,7 +77,8 @@ python full_train.py
 ```
 This trains the vanilla model described in the paper on the training set used in the paper.
 
-To train on a different dataset, either modify the `full_train.py`, edit the default arguments defined in the first few lines of `source/points_to_surf_train.py` or modify and run the scripts in the `experiments` directory.
+To train on a different dataset, either modify the `full_train.py`, edit the default arguments defined in the first few lines of `source/points_to_surf_train.py` or modify and run the scripts in the `experiments` directory (call from root dir).
+The training experiments are meant for a strong training machine with e.g. 4x2080TI RTX.
 
 With 4 RTX 2080Ti, we trained around 5 days to 150 epochs. Full convergence is at 200-250 epochs but the Chamfer distance doesn't change much. The topological noise might be reduced, though.
 
