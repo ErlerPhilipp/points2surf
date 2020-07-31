@@ -145,8 +145,6 @@ class PointNetfeat(nn.Module):
         self.output_size = output_size
 
         if self.use_point_stn:
-            # self.stn1 = STN(net_size_max=net_size_max, num_scales=self.num_scales,
-            #                 num_points=num_points, dim=input_dims_per_point, sym_op=self.sym_op)
             self.stn1 = QSTN(net_size_max=net_size_max, num_scales=self.num_scales,
                              num_points=num_points, dim=3, sym_op=self.sym_op)
 

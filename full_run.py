@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     # general settings
     model_name = 'vanilla'
-    dataset = 'minimal'
+    dataset = 'abc_minimal'
     base_dir = 'datasets'
 
     in_dir = os.path.join(base_dir, dataset)
@@ -92,11 +92,11 @@ if __name__ == '__main__':
 
     # train model on GT data with multiple query points per patch
     train_opt = points_to_surf_train.parse_arguments(train_params)
-    points_to_surf_train.train_meshnet(train_opt)
+    points_to_surf_train.points_to_surf_train(train_opt)
 
     # evaluate model on GT data with multiple query points per patch
     eval_opt = points_to_surf_eval.parse_arguments(eval_params)
-    points_to_surf_eval.eval_meshnet(eval_opt)
+    points_to_surf_eval.points_to_surf_eval(eval_opt)
     evaluation.eval_predictions(
         os.path.join(res_dir_eval, 'eval'),
         os.path.join(in_dir, '05_query_dist'),
@@ -125,7 +125,7 @@ if __name__ == '__main__':
                        ]
         recon_params += features
         recon_opt = points_to_surf_eval.parse_arguments(recon_params)
-        points_to_surf_eval.eval_meshnet(recon_opt)
+        points_to_surf_eval.points_to_surf_eval(recon_opt)
 
         imp_surf_dist_ms_dir = os.path.join(res_dir_rec, 'dist_ms')
         query_pts_ms_dir = os.path.join(res_dir_rec, 'query_pts_ms')

@@ -11,7 +11,7 @@ from source import points_to_surf_train
 
 def full_train(opt):
 
-    points_to_surf_train.train_meshnet(opt)
+    points_to_surf_train.points_to_surf_train(opt)
 
 
 if __name__ == '__main__':

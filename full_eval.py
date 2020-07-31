@@ -30,7 +30,7 @@ def full_eval(opt):
         # evaluate
         if os.path.exists(os.path.join(opt.indir, '05_query_dist')):
             opt.reconstruction = False
-            points_to_surf_eval.eval_meshnet(opt)
+            points_to_surf_eval.points_to_surf_eval(opt)
 
             res_dir_eval = os.path.join(opt.outdir, 'eval')
 
@@ -43,7 +43,7 @@ def full_eval(opt):
         # reconstruct
         start = time.time()
         opt.reconstruction = True
-        points_to_surf_eval.eval_meshnet(opt)
+        points_to_surf_eval.points_to_surf_eval(opt)
         res_dir_rec = os.path.join(opt.outdir, 'rec')
         end = time.time()
         print('Inference of SDF took: {}'.format(end - start))

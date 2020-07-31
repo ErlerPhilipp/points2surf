@@ -143,7 +143,7 @@ def print_list_of_dicts(comp_res, keys_to_print=None, mode='latex'):
         elif mode == 'csv':
             return ','
             
-    # key per line, mesh per collumn
+    # key per line, mesh per column
     #for key in keys_to_print:
     #    line = key + ' && '
     #    for i, d in enumerate(comp_res):
@@ -207,16 +207,14 @@ def visualize_patch(patch_pts_ps, patch_pts_ms, query_point_ps, pts_sub_sample_m
         return np.repeat(np.expand_dims(np.array(color), axis=0), points.shape[0], axis=0)
 
     colors_patch_pts_ps = repeat_color_for_points([0.0, 0.0, 1.0], patch_pts_ps)
-    if patch_pts_ms is not None:
-        colors_patch_pts_ms = repeat_color_for_points([1.0, 0.0, 0.0], patch_pts_ms)
     colors_query_point_ps = repeat_color_for_points([1.0, 1.0, 0.0], query_point_ps)
     colors_pts_sub_sample_ms = repeat_color_for_points([0.0, 1.0, 0.0], pts_sub_sample_ms)
     colors_query_point_ms = repeat_color_for_points([1.0, 0.0, 1.0], query_point_ms)
     colors = np.concatenate((colors_patch_pts_ps, colors_query_point_ps, colors_pts_sub_sample_ms,
                              colors_query_point_ms), axis=0)
     if patch_pts_ms is not None:
-        colors = np.concatenate(
-            (colors, colors_patch_pts_ms), axis=0)
+        colors_patch_pts_ms = repeat_color_for_points([1.0, 0.0, 0.0], patch_pts_ms)
+        colors = np.concatenate((colors, colors_patch_pts_ms), axis=0)
 
     point_cloud.write_ply(file_path=file_path, points=pts, colors=colors)
 

@@ -37,10 +37,6 @@ def get_voxel_centers_grid(pts, grid_resolution, k, distance_threshold_ms=None, 
     grid_pts_neighbor_ids = kdtree.query_ball_point(grid_pts_ms, distance_threshold_ms, n_jobs=num_processes)
     grid_pts_has_close_neighbor = np.array([bool(len(ids_list)) for ids_list in grid_pts_neighbor_ids])
     grid_pts_near_surf_ms = grid_pts_ms[grid_pts_has_close_neighbor]
-    # use rather inefficient kd-tree because the ball query is only single-threaded
-    # distance_threshold_ms = 1.0 / grid_resolution * 4.0  # larger to prevent holes in the volume
-    # grid_pts_dists_ms, grid_pts_neighbor_ids = kdtree.query(grid_pts_ms, 1, n_jobs=num_processes)
-    # grid_pts_near_surf_ms = grid_pts_ms[grid_pts_dists_ms < distance_threshold_ms]
 
     # get patch points
     patch_pts_dists, patch_pts_ids = kdtree.query(grid_pts_near_surf_ms, k, n_jobs=num_processes)
@@ -75,23 +71,11 @@ def get_voxel_centers_grid_smaller_pc(pts, grid_resolution, distance_threshold_v
 
 
 def model_space_to_volume_space(pts_ms, vol_res):
-    """
-
-    :param pts_ms:
-    :param vol_res:
-    :return:
-    """
     pts_pos_octant = (pts_ms + 1.0) / 2.0
     return np.floor(pts_pos_octant * vol_res).astype(np.int)
 
 
 def volume_space_to_model_space(pts_vs, vol_res):
-    """
-
-    :param pts_vs:
-    :param vol_res:
-    :return:
-    """
     return ((pts_vs + 0.5) / vol_res) * 2.0 - 1.0
 
 
@@ -107,7 +91,7 @@ def add_samples_to_volume(vol, pos_ms, val):
     # get distance between samples and their corresponding voxel centers
     pos_vs = model_space_to_volume_space(pos_ms, vol.shape[0])
     # grid_cell_centers_ms = volume_space_to_model_space(pos_vs, vol.shape[0])
-    grid_cell_centers_ms = pos_ms  # TODO: convert back and forth to get the points centered at grid cells
+    grid_cell_centers_ms = pos_ms
     dist_pos_cell_center = utils.cartesian_dist(pos_ms, grid_cell_centers_ms)
 
     # cluster by voxel
@@ -127,11 +111,10 @@ def add_samples_to_volume(vol, pos_ms, val):
     return vol
 
 
-def propagate_sign(vol, sigma=5, certainty_threshold=0.2):
+def propagate_sign(vol, sigma=5, certainty_threshold=13):
     """
-
+    iterative propagation of SDF signs from 'seed' voxels to get a dense, truncated volume
     :param vol:
-    #:param certainty_threshold: int in (0..5^3]
     :param certainty_threshold: int in (0..5^3]
     :param sigma: neighborhood of propagation (kernel size)
     :return:
@@ -244,7 +227,7 @@ def implicit_surface_to_mesh(query_dist_ms, query_pts_ms,
             file_utils.make_dir_for_file(mc_out_file)
             mesh.export(mc_out_file)
     else:
-        print('Warning: volume for marching cubes contains no surface!')
+        print('Warning: volume for marching cubes contains no 0-level set!')
 
 
 def implicit_surface_to_mesh_file(query_dist_ms_file, query_pts_ms_file,
@@ -305,10 +288,9 @@ def visualize_query_points(query_pts_ms, query_dist_ms, file_out_off):
 def get_query_pts_for_mesh(in_mesh: trimesh.Trimesh, num_query_pts: int, patch_radius: float,
                            far_query_pts_ratio=0.1, rng=np.random.RandomState()):
     # assume mesh to be centered around the origin
-
     import trimesh.proximity
 
-    def _get_points_near_surface(mesh: trimesh.Trimesh, num_query_pts_close, patch_radius, rng):
+    def _get_points_near_surface(mesh: trimesh.Trimesh):
         samples, face_id = mesh.sample(num_query_pts_close, return_index=True)
         offset_factor = (rng.random(size=(num_query_pts_close,)) - 0.5) * 2.0 * patch_radius
         sample_normals = mesh.face_normals[face_id]
@@ -323,8 +305,7 @@ def get_query_pts_for_mesh(in_mesh: trimesh.Trimesh, num_query_pts: int, patch_r
     num_query_pts_close = num_query_pts - num_query_pts_far
 
     in_mesh.fix_normals()
-    bb_size = np.max(in_mesh.bounds[1, :] - in_mesh.bounds[0, :])  # max(max_corner - min_corner)
-    query_pts_close = _get_points_near_surface(in_mesh, num_query_pts_close, patch_radius, rng)
+    query_pts_close = _get_points_near_surface(in_mesh)
 
     # add e.g. 10% samples that may be far from the surface
     query_pts_far = (rng.random(size=(num_query_pts_far, 3))) - 0.5
@@ -355,6 +336,7 @@ def get_signed_distance(in_mesh: trimesh.Trimesh, query_pts_ms,
     if num_nans > 0 or num_infs > 0:
         print('Error: Encountered {} NaN and {} Inf values in signed distance of {}.'.format(
             num_nans, num_infs, query_pts_ms))
+        # # debug output of NaNs
         # # repeat and log error
         # trimesh.util.attach_to_log()
         # dists_ms = prox.signed_distance(mesh, pts_query)

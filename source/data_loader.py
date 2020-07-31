@@ -299,6 +299,7 @@ class PointcloudPatchDataset(data.Dataset):
                             pts=pts, grid_resolution=query_grid_resolution, distance_threshold_vs=self.epsilon)
                     self.shape_patch_count.append(grid_pts_near_surf_ms.shape[0])
 
+                    # un-comment to get a debug output for the necessary query points
                     # mesh_io.write_off('debug/{}'.format(shape_name + '.off'), grid_pts_near_surf_ms, [])
                     # self.shape_patch_count.append(query_grid_resolution ** 3)  # full grid
                 else:
@@ -384,40 +385,27 @@ class PointcloudPatchDataset(data.Dataset):
             imp_surf_query_point_ps = \
                 trafo.transform_points(np.expand_dims(imp_surf_query_point_ps, 0), rand_rot)[0].astype(np.float32)
 
-        #     # random translation as data augmentation
-        #     # small translation is sufficient. too much will move the points outside the unit cube
-        #     rand_trans = (self.rng.rand(3).astype(np.float32) - 0.5) / 5.0  # [-0.1..+0.1)
-        #     # TODO: try to increase the random translation and clip points outside the unit box
-        #     pts_sub_sample_ms += np.broadcast_to(rand_trans, pts_sub_sample_ms.shape)
-        #     imp_surf_query_point_ms += rand_trans
-        #     # don't translate patch points
-        else:
-            rand_rot = trimesh.transformations.identity_matrix()
-
         patch_data = dict()
-        # create new arrays to close the memory mapped files, .copy() is NOT sufficient
-        # patch_data['patch_id'] = np.array([shape_ind, patch_ind], dtype=np.int64)  # numpy array for pytorch tensor
-        # patch_data['patch_pts_ids'] = np.array(patch_pts_ids, dtype=np.int64)  # numpy array for pytorch tensor
-        patch_data['patch_pts_ps'] = patch_pts_ps  # no .copy() here because it's no mmap anymore
+        # create new arrays to close the memory mapped files
+        patch_data['patch_pts_ps'] = patch_pts_ps
         patch_data['patch_radius_ms'] = np.array(patch_radius_ms, dtype=np.float32)
-        patch_data['pts_sub_sample_ms'] = pts_sub_sample_ms  # no .copy() here because it's no mmap anymore
-        patch_data['imp_surf_query_point_ms'] = imp_surf_query_point_ms  # no .copy() here because it's no mmap anymore
+        patch_data['pts_sub_sample_ms'] = pts_sub_sample_ms
+        patch_data['imp_surf_query_point_ms'] = imp_surf_query_point_ms
         patch_data['imp_surf_query_point_ps'] = np.array(imp_surf_query_point_ps)
         patch_data['imp_surf_ms'] = np.array([imp_surf_dist_ms], dtype=np.float32)
         patch_data['imp_surf_magnitude_ms'] = np.array([np.abs(imp_surf_dist_ms)], dtype=np.float32)
         patch_data['imp_surf_dist_sign_ms'] = np.array([imp_surf_dist_sign_ms], dtype=np.float32)
-        # patch_data['rand_rot_mat'] = np.array(rand_rot[:3, :3], dtype=np.float32)
 
-        if False:
-            import evaluation
-            evaluation.visualize_patch(
-                patch_pts_ps=patch_data['patch_pts_ps'], patch_pts_ms=pts_patch_ms,
-                query_point_ps=patch_data['imp_surf_query_point_ps'],
-                pts_sub_sample_ms=patch_data['pts_sub_sample_ms'], query_point_ms=patch_data['imp_surf_query_point_ms'],
-                file_path='debug/patch_local_and_global.ply')
-            patch_sphere = trimesh.primitives.Sphere(radius=self.patch_radius, center=imp_surf_query_point_ms)
-            patch_sphere.export(file_obj='debug/patch_sphere.ply')
-            print('Debug patch outputs with radius {} in "debug" dir'.format(self.patch_radius))
+        # un-comment to get a debug output of a training sample
+        # import evaluation
+        # evaluation.visualize_patch(
+        #     patch_pts_ps=patch_data['patch_pts_ps'], patch_pts_ms=pts_patch_ms,
+        #     query_point_ps=patch_data['imp_surf_query_point_ps'],
+        #     pts_sub_sample_ms=patch_data['pts_sub_sample_ms'], query_point_ms=patch_data['imp_surf_query_point_ms'],
+        #     file_path='debug/patch_local_and_global.ply')
+        # patch_sphere = trimesh.primitives.Sphere(radius=self.patch_radius, center=imp_surf_query_point_ms)
+        # patch_sphere.export(file_obj='debug/patch_sphere.ply')
+        # print('Debug patch outputs with radius {} in "debug" dir'.format(self.patch_radius))
 
         # convert to tensors
         for key in patch_data.keys():

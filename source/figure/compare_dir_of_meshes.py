@@ -1,3 +1,5 @@
+# This messy code calculates the Chamfer distance for DeepSDF and AtlasNet outputs
+
 from source.base import evaluation
 from source.base import utils_mp
 

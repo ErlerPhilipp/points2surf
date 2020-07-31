@@ -107,10 +107,6 @@ def load_pcd(file_in):
     # PCD: http://pointclouds.org/documentation/tutorials/pcd_file_format.php
     # PCD RGB: http://docs.pointclouds.org/trunk/structpcl_1_1_r_g_b.html#a4ad91ab9726a3580e6dfc734ab77cd18
 
-    # cloudcompare_convert = '"C:\Program Files\CloudCompare\CloudCompare.exe" '\
-    #                        '-O D:\Nextcloud\datasets\bin\blensor\scan_test.pcd -C_EXPORT_FMT ASC '\
-    #                        '-SAVE_CLOUDS FILE "D:\Nextcloud\datasets\bin\blensor\scan_test.xyz"'
-
     def read_header(lines_header):
         header_info = dict()
 

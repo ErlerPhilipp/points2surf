@@ -14,8 +14,7 @@ import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
 import torch.utils.data
 
-from torch.utils.tensorboard import SummaryWriter  # https://github.com/lanpa/tensorboard-pytorch
-# from torch.utils.tensorboard import SummaryWriter  # not working atm, maybe python 3.7 is not fully supported
+from torch.utils.tensorboard import SummaryWriter
 
 from source.points_to_surf_model import PointsToSurfModel
 from source import data_loader
@@ -28,22 +27,21 @@ debug = False
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser()
 
-    # naming / file handling
     parser.add_argument('--name', type=str, default='debug',
                         help='training run name')
     parser.add_argument('--desc', type=str, default='My training run for single-scale normal estimation.',
                         help='description')
-    parser.add_argument('--indir', type=str, default='./datasets/boxes',
+    parser.add_argument('--indir', type=str, default='datasets/abc_minimal',
                         help='input folder (meshes)')
-    parser.add_argument('--outdir', type=str, default='./models',
+    parser.add_argument('--outdir', type=str, default='models',
                         help='output folder (trained models)')
-    parser.add_argument('--logdir', type=str, default='./logs',
+    parser.add_argument('--logdir', type=str, default='logs',
                         help='training log folder')
     parser.add_argument('--trainset', type=str, default='trainset.txt',
                         help='training set file name')
     parser.add_argument('--testset', type=str, default='testset.txt',
                         help='test set file name')
-    parser.add_argument('--saveinterval', type=int, default='10',
+    parser.add_argument('--save_interval', type=int, default='10',
                         help='save model each n epochs')
     parser.add_argument('--debug_interval', type=int, default='1',
                         help='print logging info each n epochs')
@@ -96,7 +94,7 @@ def parse_arguments(args=None):
                         'remain consecutive (shapes and patches inside a shape are permuted)')
     parser.add_argument('--identical_epochs', type=int, default=False,
                         help='use same patches in each epoch, mainly for debugging')
-    parser.add_argument('--lr', type=float, default=0.0001,
+    parser.add_argument('--lr', type=float, default=0.001,
                         help='learning rate')
     parser.add_argument('--scheduler_steps', type=int, nargs='+', default=[75, 125],
                         help='the lr will be multiplicated with 0.1 at these epochs')
@@ -162,13 +160,13 @@ def do_logging(writer, log_prefix, epoch, opt, loss,
         print(state_string)
 
 
-def train_meshnet(opt):
+def points_to_surf_train(opt):
 
     device = torch.device("cpu" if opt.gpu_idx < 0 else "cuda:%d" % opt.gpu_idx)
     print('Training on {} GPUs'.format(torch.cuda.device_count()))
     print('Training on ' + ('cpu' if opt.gpu_idx < 0 else torch.cuda.get_device_name(opt.gpu_idx)))
 
-    # colored console output
+    # colored console output, works e.g. on Ubuntu (WSL)
     green = lambda x: '\033[92m' + x + '\033[0m'
     blue = lambda x: '\033[94m' + x + '\033[0m'
 
@@ -179,7 +177,7 @@ def train_meshnet(opt):
 
     if os.path.exists(log_dirname) or os.path.exists(model_filename):
         if opt.name != 'test':
-            response = input('A training run named "%s" already exists, overwrite? (y/n) ' % opt.name)
+            response = input('A training run named "{}" already exists, overwrite? (y/n) '.format(opt.name))
             if response == 'y':
                 del_log = True
             else:
@@ -218,8 +216,7 @@ def train_meshnet(opt):
             output_names.append(o)
             output_target_ind.append(target_features.index(o))
             output_pred_ind.append(pred_dim)
-            # output_loss_weights[o] = 10.0
-            output_loss_weights[o] = 1.0
+            output_loss_weights[o] = 1.0  # try higher weight here
             pred_dim += 1
         elif o == 'imp_surf_sign':
             if o not in target_features:
@@ -248,7 +245,7 @@ def train_meshnet(opt):
 
     # create model
     use_query_point = any([f in opt.outputs for f in ['imp_surf', 'imp_surf_magnitude', 'imp_surf_sign']])
-    meshnet = PointsToSurfModel(
+    p2s_model = PointsToSurfModel(
         net_size_max=opt.net_size,
         num_points=opt.points_per_patch,
         output_dim=pred_dim,
@@ -265,9 +262,9 @@ def train_meshnet(opt):
     start_epoch = 0
     if opt.refine != '':
         print(f'Refining weights from {opt.refine}')
-        meshnet.cuda(device=device)  # same order as in training
-        meshnet = torch.nn.DataParallel(meshnet)
-        meshnet.load_state_dict(torch.load(opt.refine))
+        p2s_model.cuda(device=device)  # same order as in training
+        p2s_model = torch.nn.DataParallel(p2s_model)
+        p2s_model.load_state_dict(torch.load(opt.refine))
         try:
             # expecting a file name like 'vanilla_model_50.pth'
             model_file = str(opt.refine)
@@ -367,8 +364,8 @@ def train_meshnet(opt):
     opt.train_shapes = train_dataset.shape_names
     opt.test_shapes = test_dataset.shape_names
 
-    print('training set: %d patches (in %d batches) - test set: %d patches (in %d batches)' %
-          (len(train_datasampler), len(train_dataloader), len(test_datasampler), len(test_dataloader)))
+    print('Training set: {} patches (in {} batches) | Test set: {} patches (in {} batches)'.format(
+          len(train_datasampler), len(train_dataloader), len(test_datasampler), len(test_dataloader)))
 
     try:
         os.makedirs(opt.outdir)
@@ -381,15 +378,15 @@ def train_meshnet(opt):
     log_writer.add_scalar('LR', opt.lr, 0)
 
     # milestones in number of optimizer iterations
-    optimizer = optim.SGD(meshnet.parameters(), lr=opt.lr, momentum=opt.momentum)
+    optimizer = optim.SGD(p2s_model.parameters(), lr=opt.lr, momentum=opt.momentum)
 
     # SGD changes lr depending on training progress
     # scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[], gamma=0.1)  # constant lr
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=opt.scheduler_steps, gamma=0.1)
 
     if opt.refine == '':
-        meshnet.cuda(device=device)
-        meshnet = torch.nn.DataParallel(meshnet)
+        p2s_model.cuda(device=device)
+        p2s_model = torch.nn.DataParallel(p2s_model)
 
     train_num_batch = len(train_dataloader)
     test_num_batch = len(test_dataloader)
@@ -416,12 +413,12 @@ def train_meshnet(opt):
                 batch_data_train[key] = batch_data_train[key].cuda(non_blocking=True)
 
             # set to training mode
-            meshnet.train()
+            p2s_model.train()
 
             # zero gradients
             optimizer.zero_grad()
 
-            pred_train = meshnet(batch_data_train)
+            pred_train = p2s_model(batch_data_train)
 
             loss_train = compute_loss(
                 pred=pred_train, batch_data=batch_data_train,
@@ -471,7 +468,7 @@ def train_meshnet(opt):
             while test_fraction_done <= train_fraction_done and test_batchind + 1 < test_num_batch:
 
                 # set to evaluation mode, no auto-diff
-                meshnet.eval()
+                p2s_model.eval()
 
                 test_batchind, batch_data_test = next(test_enum)
 
@@ -481,7 +478,7 @@ def train_meshnet(opt):
 
                 # forward pass
                 with torch.no_grad():
-                    pred_test = meshnet(batch_data_test)
+                    pred_test = p2s_model(batch_data_test)
 
                 loss_test = compute_loss(
                     pred=pred_test, batch_data=batch_data_test,
@@ -500,12 +497,12 @@ def train_meshnet(opt):
                            train=False, output_names=output_names, metrics_dict=metrics_dict)
 
         # end of epoch save model, overwriting the old model
-        if epoch % opt.saveinterval == 0 or epoch == opt.nepoch-1:
-            torch.save(meshnet.state_dict(), model_filename)
+        if epoch % opt.save_interval == 0 or epoch == opt.nepoch-1:
+            torch.save(p2s_model.state_dict(), model_filename)
 
         # save model in a separate file in epochs 0,5,10,50,100,500,1000, ...
         if epoch % (5 * 10**math.floor(math.log10(max(2, epoch-1)))) == 0 or epoch % 100 == 0 or epoch == opt.nepoch-1:
-            torch.save(meshnet.state_dict(), os.path.join(opt.outdir, '%s_model_%d.pth' % (opt.name, epoch)))
+            torch.save(p2s_model.state_dict(), os.path.join(opt.outdir, '%s_model_%d.pth' % (opt.name, epoch)))
 
         log_writer.flush()
 
@@ -548,11 +545,6 @@ def calc_metrics(outputs, pred, gt_data):
         rmse = torch.sqrt(torch.mean((abs_dist.abs() - gt.squeeze().abs()) ** 2))
         return rmse.detach().cpu().item()
 
-    def compute_rmse_signed_dist(pred, gt):
-        signed_dist = sdf_nn.post_process_distance(pred)
-        rmse = torch.sqrt(torch.mean((signed_dist - gt.squeeze()) ** 2))
-        return rmse.detach().cpu().item()
-
     def compare_classification(pred, gt):
         inside_class = sdf_nn.post_process_sign(pred)
         eval_dict = evaluation.compare_predictions_binary_tensors(
@@ -574,15 +566,10 @@ def calc_metrics(outputs, pred, gt_data):
                                            gt=gt_data['imp_surf_dist_sign_ms'])
         eval_dict['abs_dist_rms'] = abs_dist_rms
         return eval_dict
-        #dist_rms = compute_rmse_signed_dist(pred=pred.squeeze(), gt=gt_data['imp_surf_ms'])
-        #return {
-        #    'dist_rms': dist_rms,
-        #}
     else:
         return {}
 
 
 if __name__ == '__main__':
     train_opt = parse_arguments()
-    train_meshnet(train_opt)
-    sys.exit(0)
+    points_to_surf_train(train_opt)

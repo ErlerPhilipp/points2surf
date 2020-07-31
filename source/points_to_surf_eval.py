@@ -16,11 +16,10 @@ from source.base import file_utils
 def parse_arguments(args=None):
     parser = argparse.ArgumentParser()
 
-    # naming / file handling
-    parser.add_argument('--indir', type=str, default='./meshes/boxes', help='input folder (meshes)')
-    parser.add_argument('--outdir', type=str, default='./results',
+    parser.add_argument('--indir', type=str, default='datasets/abc_minimal', help='input folder (meshes)')
+    parser.add_argument('--outdir', type=str, default='results',
                         help='output folder (estimated point cloud properties)')
-    parser.add_argument('--dataset', nargs='+', type=str, default=['valset_mini.txt'], help='shape set file name')
+    parser.add_argument('--dataset', nargs='+', type=str, default=['testset.txt'], help='shape set file name')
     parser.add_argument('--reconstruction', type=bool, default=False, help='do reconstruction instead of evaluation')
     parser.add_argument('--query_grid_resolution', type=int, default=None,
                         help='resolution of sampled volume used for reconstruction')
@@ -32,8 +31,8 @@ def parse_arguments(args=None):
                         help='Neighborhood of points that is queried with the network. '
                              'This enables you to set the trade-off between computation time and tolerance for '
                              'sparsely sampled surfaces.')
-    parser.add_argument('--modeldir', type=str, default='./models', help='model folder')
-    parser.add_argument('--models', type=str, default='test_0',
+    parser.add_argument('--modeldir', type=str, default='models', help='model folder')
+    parser.add_argument('--models', type=str, default='p2s_vanilla',
                         help='names of trained models, can evaluate multiple models')
     parser.add_argument('--modelpostfix', type=str, default='_model.pth', help='model file postfix')
     parser.add_argument('--parampostfix', type=str, default='_params.pth', help='parameter file postfix')
@@ -150,7 +149,7 @@ def make_dataloader(eval_opt, dataset, datasampler, model_batch_size):
 def make_regressor(train_opt, pred_dim, model_filename, device):
 
     use_query_point = any([f in train_opt.outputs for f in ['imp_surf', 'imp_surf_magnitude', 'imp_surf_sign']])
-    meshnet = PointsToSurfModel(
+    p2s_model = PointsToSurfModel(
         net_size_max=train_opt.net_size if 'net_size' in train_opt else 1024,
         num_points=train_opt.points_per_patch,
         output_dim=pred_dim,
@@ -164,11 +163,11 @@ def make_regressor(train_opt, pred_dim, model_filename, device):
         shared_transformer=train_opt.shared_transformer,
     )
 
-    meshnet.cuda(device=device)  # same order as in training
-    meshnet = torch.nn.DataParallel(meshnet)
-    meshnet.load_state_dict(torch.load(model_filename))
-    meshnet.eval()
-    return meshnet
+    p2s_model.cuda(device=device)  # same order as in training
+    p2s_model = torch.nn.DataParallel(p2s_model)
+    p2s_model.load_state_dict(torch.load(model_filename))
+    p2s_model.eval()
+    return p2s_model
 
 
 def post_process(batch_pred, train_opt, output_ids, output_pred_ind, patch_radius, fixed_radius):
@@ -196,7 +195,7 @@ def post_process(batch_pred, train_opt, output_ids, output_pred_ind, patch_radiu
         batch_pred[:, output_pred_ind[oi_iss]:output_pred_ind[oi_iss] + 1] = imp_surf_sig_pred
 
 
-def save_reconstruction_data(imp_surf_dist_ms, dataset, model_out_dir, shape_ind, query_grid_resolution):
+def save_reconstruction_data(imp_surf_dist_ms, dataset, model_out_dir, shape_ind):
 
     from source import sdf
 
@@ -244,7 +243,7 @@ def save_evaluation(datasampler, dataset, eval_opt, model_out_dir, output_ids, o
         imp_surf_np_ms = imp_surf_shape_ms.cpu().numpy()
 
         if eval_opt.reconstruction:
-            save_reconstruction_data(imp_surf_np_ms, dataset, model_out_dir, shape_ind, eval_opt.query_grid_resolution)
+            save_reconstruction_data(imp_surf_np_ms, dataset, model_out_dir, shape_ind)
 
         os.makedirs(os.path.join(model_out_dir, 'eval'), exist_ok=True)
         np.save(os.path.join(model_out_dir, 'eval', dataset.shape_names[shape_ind] + '.xyz.npy'), imp_surf_np_ms)
@@ -279,7 +278,7 @@ def save_evaluation(datasampler, dataset, eval_opt, model_out_dir, output_ids, o
                          dist_query_ms=imp_surf_np_ms)
 
         if eval_opt.reconstruction:
-            save_reconstruction_data(imp_surf_np_ms, dataset, model_out_dir, shape_ind, eval_opt.query_grid_resolution)
+            save_reconstruction_data(imp_surf_np_ms, dataset, model_out_dir, shape_ind)
 
         prop_saved[output_ids['ism'][0]] = True
         prop_saved[output_ids['iss'][0]] = True
@@ -294,7 +293,7 @@ def save_evaluation(datasampler, dataset, eval_opt, model_out_dir, output_ids, o
                    datasampler.shape_patch_inds[shape_ind], fmt='%d')
 
 
-def eval_meshnet(eval_opt):
+def points_to_surf_eval(eval_opt):
 
     models = eval_opt.models.split()
 
@@ -332,7 +331,7 @@ def eval_meshnet(eval_opt):
         datasampler = make_datasampler(eval_opt=eval_opt, dataset=dataset)
         dataloader = make_dataloader(eval_opt=eval_opt, dataset=dataset, datasampler=datasampler,
                                      model_batch_size=model_batch_size)
-        meshnet = make_regressor(train_opt=train_opt, pred_dim=pred_dim, model_filename=model_filename, device=device)
+        p2s_model = make_regressor(train_opt=train_opt, pred_dim=pred_dim, model_filename=model_filename, device=device)
 
         shape_ind = 0
         shape_patch_offset = 0
@@ -355,7 +354,6 @@ def eval_meshnet(eval_opt):
             os.makedirs(model_out_dir)
 
         print(f'evaluating {len(dataset)} patches')
-        # num_batch = len(dataloader)
         for batch_data in tqdm(dataloader):
 
             # batch data to GPU
@@ -369,12 +367,9 @@ def eval_meshnet(eval_opt):
                 patch_radius = batch_data['patch_radius_ms']
 
             with torch.no_grad():
-                batch_pred = meshnet(batch_data)
+                batch_pred = p2s_model(batch_data)
 
             post_process(batch_pred, train_opt, output_ids, output_pred_ind, patch_radius, fixed_radius)
-
-            # if batch_id % 10 == 0:
-            #     print('[%s %d/%d] shape %s' % (model_name, batch_id, num_batch-1, dataset.shape_names[shape_ind]))
 
             batch_offset = 0
             while batch_offset < batch_pred.size(0):
@@ -391,9 +386,6 @@ def eval_meshnet(eval_opt):
                 shape_patch_offset = shape_patch_offset + samples_remaining
 
                 if shape_patches_remaining <= batch_patches_remaining:
-
-                    # print('[%s %d/%d] shape %s' % (model_name, batch_id, num_batch-1, dataset.shape_names[shape_ind]))
-
                     save_evaluation(datasampler, dataset, eval_opt, model_out_dir, output_ids, output_pred_ind,
                                     shape_ind, shape_patch_values, train_opt)
 
@@ -404,7 +396,6 @@ def eval_meshnet(eval_opt):
                         if eval_opt.sampling == 'full':
                             shape_patch_count = dataset.shape_patch_count[shape_ind]
                         elif eval_opt.sampling == 'sequential_shapes_random_patches':
-                            # shape_patch_count = min(eval_opt.patches_per_shape, dataset.shape_patch_count[shape_ind])
                             shape_patch_count = len(datasampler.shape_patch_inds[shape_ind])
                         else:
                             raise ValueError('Unknown sampling strategy: %s' % eval_opt.sampling)
@@ -414,4 +405,4 @@ def eval_meshnet(eval_opt):
 
 if __name__ == '__main__':
     eval_opt = parse_arguments()
-    eval_meshnet(eval_opt)
+    points_to_surf_eval(eval_opt)

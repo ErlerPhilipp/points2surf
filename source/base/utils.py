@@ -113,7 +113,7 @@ def _get_pts_normals_single_file(pts_file_in, mesh_file_in,
     import trimesh.sample
     import sys
     import scipy.spatial as spatial
-    import point_cloud
+    from source.base import point_cloud
 
     # sample points on the surface and take face normal
     pts = np.load(pts_file_in)
@@ -177,7 +177,6 @@ def _get_dist_from_patch_planes_single_file(file_in_pts_abs, file_in_normals_abs
 
     patch_pts = pts[pids]
     patch_normals = normals[pids]
-    #patch_normals_avg = np.mean(patch_normals, axis=1)
     patch_center_normal = patch_normals[:, 0]
     patch_centers = np.mean(patch_pts, axis=1)
 
@@ -187,7 +186,6 @@ def _get_dist_from_patch_planes_single_file(file_in_pts_abs, file_in_normals_abs
         query_points_id_end = (pi + 1) * num_query_points_per_patch
         patch_dists = point_plane_distance(
             points=query[query_points_id_start:query_points_id_end],
-            #plane_normal=patch_normals_avg[pi],
             plane_normal=patch_center_normal[pi],
             plane_origin=patch_centers[pi])
         patch_dists[np.isnan(patch_dists)] = 0.0

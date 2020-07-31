@@ -1,3 +1,5 @@
+# This messy code computes vertex colors based on the distance reconstruction <-> GT mesh
+
 from source.base import parula_colormap
 
 from source.base import utils_mp
