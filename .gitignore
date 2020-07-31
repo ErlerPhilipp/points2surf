@@ -130,3 +130,7 @@ dmypy.json
 .idea/
 *.zip
 *.pth
+results/
+models/
+logs/
+datasets/

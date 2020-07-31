@@ -435,19 +435,6 @@ def points_to_surf_train(opt):
             # parameter optimization step
             optimizer.step()
 
-            # update and log lr
-            lr_before_update = scheduler.get_lr()
-            if isinstance(lr_before_update, list):
-                lr_before_update = lr_before_update[0]
-            scheduler.step(epoch)
-            lr_after_update = scheduler.get_lr()
-            if isinstance(lr_after_update, list):
-                lr_after_update = lr_after_update[0]
-            if lr_before_update != lr_after_update:
-                print('LR changed from {} to {} in epoch {}'.format(lr_before_update, lr_after_update, epoch))
-            current_step = (epoch + train_fraction_done) * train_num_batch * opt.batchSize
-            log_writer.add_scalar('LR', lr_after_update, current_step)
-
             train_fraction_done = (train_batchind+1) / train_num_batch
 
             if debug:
@@ -503,6 +490,19 @@ def points_to_surf_train(opt):
         # save model in a separate file in epochs 0,5,10,50,100,500,1000, ...
         if epoch % (5 * 10**math.floor(math.log10(max(2, epoch-1)))) == 0 or epoch % 100 == 0 or epoch == opt.nepoch-1:
             torch.save(p2s_model.state_dict(), os.path.join(opt.outdir, '%s_model_%d.pth' % (opt.name, epoch)))
+
+        # update and log lr
+        lr_before_update = scheduler.get_last_lr()
+        if isinstance(lr_before_update, list):
+            lr_before_update = lr_before_update[0]
+        scheduler.step()
+        lr_after_update = scheduler.get_last_lr()
+        if isinstance(lr_after_update, list):
+            lr_after_update = lr_after_update[0]
+        if lr_before_update != lr_after_update:
+            print('LR changed from {} to {} in epoch {}'.format(lr_before_update, lr_after_update, epoch))
+        current_step = (epoch + 1) * train_num_batch * opt.batchSize - 1
+        log_writer.add_scalar('LR', lr_after_update, current_step)
 
         log_writer.flush()
 

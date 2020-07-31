@@ -107,7 +107,7 @@ def make_dataset(train_opt, eval_opt):
     dataset = data_loader.PointcloudPatchDataset(
         root=eval_opt.indir, shape_list_filename=eval_opt.dataset,
         points_per_patch=train_opt.points_per_patch,
-        patch_features=train_opt.patch_features,
+        patch_features=train_opt.outputs,
         seed=eval_opt.seed,
         center=train_opt.patch_center,
         cache_capacity=eval_opt.cache_capacity,
@@ -172,7 +172,7 @@ def make_regressor(train_opt, pred_dim, model_filename, device):
 
 def post_process(batch_pred, train_opt, output_ids, output_pred_ind, patch_radius, fixed_radius):
     # post-processing of the prediction
-    if 'imp_surf' in train_opt.patch_features:
+    if 'imp_surf' in train_opt.outputs:
         oi_imp = output_ids['imp'][0]
         imp_surf_pred = batch_pred[:, output_pred_ind[oi_imp]:output_pred_ind[oi_imp] + 1]
         imp_surf_pred = sdf_nn.post_process_distance(pred=imp_surf_pred)
@@ -180,7 +180,7 @@ def post_process(batch_pred, train_opt, output_ids, output_pred_ind, patch_radiu
             imp_surf_pred *= patch_radius.unsqueeze(dim=1)
         batch_pred[:, output_pred_ind[oi_imp]:output_pred_ind[oi_imp] + 1] = \
             imp_surf_pred
-    if 'imp_surf_magnitude' in train_opt.patch_features:
+    if 'imp_surf_magnitude' in train_opt.outputs:
         oi_ism = output_ids['ism'][0]
         imp_surf_mag_pred = batch_pred[:, output_pred_ind[oi_ism]:output_pred_ind[oi_ism] + 1]
         imp_surf_mag_pred = sdf_nn.post_process_magnitude(pred=imp_surf_mag_pred)
@@ -188,7 +188,7 @@ def post_process(batch_pred, train_opt, output_ids, output_pred_ind, patch_radiu
             imp_surf_mag_pred *= patch_radius.unsqueeze(dim=1)
         batch_pred[:, output_pred_ind[oi_ism]:output_pred_ind[oi_ism] + 1] = \
             imp_surf_mag_pred
-    if 'imp_surf_sign' in train_opt.patch_features:
+    if 'imp_surf_sign' in train_opt.outputs:
         oi_iss = output_ids['iss'][0]
         imp_surf_sig_pred = batch_pred[:, output_pred_ind[oi_iss]:output_pred_ind[oi_iss] + 1]
         imp_surf_sig_pred = sdf_nn.post_process_sign(pred=imp_surf_sig_pred)
