@@ -30,15 +30,17 @@ if __name__ == '__main__':
     test_set = 'testset.txt'
 
     # features = ['imp_surf', 'patch_pts_ids', 'p_index']  # l2-loss
-    features = ['imp_surf_magnitude', 'imp_surf_sign', 'patch_pts_ids', 'p_index']  # l2-loss(abs) + BCE-loss
-    #workers = 22
-    workers = 7
+    features = ['imp_surf_magnitude', 'imp_surf_sign', 'patch_pts_ids', 'p_index']  # l2-loss + BCE-loss
+
+    # workers = 22  # for strong training machine
+    workers = 7  # for typical PC
+
     # batch_size = 501  # ~7.5 GB memory on 4 2080 TI for 300 patch points + 1000 sub-sample points
     # batch_size = 3001  # ~10 GB memory on 4 2080 TI for 50 patch points + 200 sub-sample points
     batch_size = 100  # ~7 GB memory on 1 1070 for 300 patch points + 1000 sub-sample points
 
-    grid_resolution = 256
-    # grid_resolution = 128
+    # grid_resolution = 256  # quality like in the paper
+    grid_resolution = 128  # quality for a short test
     rec_epsilon = 3
     certainty_threshold = 13
     sigma = 5

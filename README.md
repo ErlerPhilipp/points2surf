@@ -71,7 +71,7 @@ The evaluation experiments are meant for a normal PC with e.g. a 1070 GTX.
 To train P2S with the default settings and our training set:
 ``` bash
 # download all datasets
-python datasets/download_datasets_training.py
+python datasets/download_datasets_abc_training.py
 
 python full_train.py
 ```
