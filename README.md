@@ -54,6 +54,7 @@ Reconstruct meshes from a point clouds to replicate our results:
 python datasets/download_datasets_abc.py
 python datasets/download_datasets_famous.py
 python datasets/download_datasets_thingi10k.py
+python datasets/download_datasets_real_world.py
 
 # download the pre-trained models
 python models/download_models_vanilla.py
