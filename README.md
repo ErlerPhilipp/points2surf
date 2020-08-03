@@ -58,25 +58,62 @@ python datasets/download_datasets_thingi10k.py
 # download the pre-trained models
 python models/download_models_vanilla.py
 python models/download_models_ablation.py
+python models/download_models_max.py
 
-python full_eval.py
+# start the evaluation for each model
+# Points2Surf main model, trained for 150 epochs
+bash experiments/eval_p2s_vanilla.sh
+
+# ablation models, trained to for 50 epochs
+bash experiments/eval_p2s_small_radius.sh
+bash experiments/eval_p2s_medium_radius.sh
+bash experiments/eval_p2s_large_radius.sh
+bash experiments/eval_p2s_small_kNN.sh
+bash experiments/eval_p2s_large_kNN.sh
+bash experiments/eval_p2s_shared_transformer.sh
+bash experiments/eval_p2s_no_qstn.sh
+bash experiments/eval_p2s_uniform.sh
+bash experiments/eval_p2s_vanilla_ablation.sh
+
+# additional ablation models, trained for 50 epochs
+bash experiments/eval_p2s_full_regression.sh
+bash experiments/eval_p2s_shared_encoder.sh
+
+# best model based on the ablation results, trained for 250 epochs
+bash experiments/eval_p2s_max.sh
 ```
-To use other models and datasets, modify and run the bash scripts in the `experiments` directory. You need to call them from root dir. The evaluation experiments are meant for a normal PC with e.g. a 1070 GTX.
-Alternatively, you can modify the `full_eval.py` or edit the default arguments in `source/points_to_surf_eval.py`.
+
+Each eval script reconstructs all test sets using the specified model. Running one evaluation takes around one day on a normal PC with e.g. a 1070 GTX and grid resolution = 256.
 
 
 ## Training
-To train P2S with the default settings and our training set:
+To train the P2S models from the paper with our training set:
 ``` bash
 # download the ABC training and validation set
 python datasets/download_datasets_abc_training.py
 
-python full_train.py
-```
-This trains the vanilla model described in the paper on the training set used in the paper.
+# start the evaluation for each model
+# Points2Surf main model, train for 150 epochs
+bash experiments/train_p2s_vanilla.sh
 
-To use other models and datasets, modify and run the bash scripts in the `experiments` directory. You need to call them from root dir. The training experiments are meant for a strong training machine with e.g. 4x2080TI RTX.
-Alternatively, you can modify the `full_train.py` or edit the default arguments in `source/points_to_surf_train.py`.
+# ablation models, train to for 50 epochs
+bash experiments/train_p2s_small_radius.sh
+bash experiments/train_p2s_medium_radius.sh
+bash experiments/train_p2s_large_radius.sh
+bash experiments/train_p2s_small_kNN.sh
+bash experiments/train_p2s_large_kNN.sh
+bash experiments/train_p2s_shared_transformer.sh
+bash experiments/train_p2s_no_qstn.sh
+bash experiments/train_p2s_uniform.sh
+bash experiments/train_p2s_vanilla_ablation.sh
+
+# additional ablation models, train for 50 epochs
+bash experiments/train_p2s_full_regression.sh
+bash experiments/train_p2s_shared_encoder.sh
+
+# best model based on the ablation results, train for 250 epochs
+bash experiments/train_p2s_max.sh
+```
 
 With 4 RTX 2080Ti, we trained around 5 days to 150 epochs. Full convergence is at 200-250 epochs but the Chamfer distance doesn't change much. The topological noise might be reduced, though.
 

@@ -237,7 +237,7 @@ class PointNetfeat(nn.Module):
 class PointsToSurfModel(nn.Module):  # basing on PointNetDenseCls
     def __init__(self, net_size_max=1024, num_points=500, output_dim=3, use_point_stn=True, use_feat_stn=True,
                  sym_op='max', use_query_point=False,
-                 sub_sample_size=500, do_augmentation=True, single_transformer=False, shared_transformer=False):
+                 sub_sample_size=500, do_augmentation=True, single_transformer=False, shared_transformation=False):
         super(PointsToSurfModel, self).__init__()
 
         self.net_size_max = net_size_max
@@ -248,7 +248,7 @@ class PointsToSurfModel(nn.Module):  # basing on PointNetDenseCls
         self.num_query_points = int(self.use_query_point)
         self.do_augmentation = do_augmentation
         self.single_transformer = bool(single_transformer)
-        self.shared_transformer = shared_transformer
+        self.shared_transformation = shared_transformation
 
         if self.single_transformer:
             self.feat_local_global = PointNetfeat(
@@ -262,7 +262,7 @@ class PointsToSurfModel(nn.Module):  # basing on PointNetDenseCls
             self.fc1_local_global = nn.Linear(int(self.net_size_max), int(self.net_size_max))
             self.bn1_local_global = nn.BatchNorm1d(int(self.net_size_max))
         else:
-            if self.use_point_stn and self.shared_transformer:
+            if self.use_point_stn and self.shared_transformation:
                 self.point_stn = QSTN(net_size_max=net_size_max, num_scales=1,
                                       num_points=self.num_points+self.sub_sample_size, dim=3, sym_op=sym_op)
 
@@ -278,7 +278,7 @@ class PointsToSurfModel(nn.Module):  # basing on PointNetDenseCls
                 net_size_max=net_size_max,
                 num_points=self.sub_sample_size,
                 num_scales=1,
-                use_point_stn=use_point_stn and not self.shared_transformer,
+                use_point_stn=use_point_stn and not self.shared_transformation,
                 use_feat_stn=use_feat_stn,
                 output_size=self.net_size_max,
                 sym_op=sym_op)
@@ -322,7 +322,7 @@ class PointsToSurfModel(nn.Module):  # basing on PointNetDenseCls
             local_global_features_transformed, _, _, _ = self.feat_local_global(local_global_features)
             patch_features = F.relu(self.bn1_local_global(self.fc1_local_global(local_global_features_transformed)))
         else:
-            if self.use_point_stn and self.shared_transformer:
+            if self.use_point_stn and self.shared_transformation:
                 feats = torch.cat((patch_features,  shape_features), dim=2)
                 trans, trans_quat = self.point_stn(feats[:, :3, :])
                 shape_features_transformed = torch.bmm(trans, shape_features[:, :3, :])
@@ -334,7 +334,7 @@ class PointsToSurfModel(nn.Module):  # basing on PointNetDenseCls
                 self.feat_global(shape_features)
             shape_features = F.relu(self.bn1_global(self.fc1_global(shape_features)))
 
-            if self.use_point_stn and not self.shared_transformer:
+            if self.use_point_stn and not self.shared_transformation:
                 # rotate patch-space points like the subsample
                 patch_features = torch.bmm(trans_global_pts, patch_features)
 

@@ -160,7 +160,7 @@ def make_regressor(train_opt, pred_dim, model_filename, device):
         sub_sample_size=train_opt.sub_sample_size,
         do_augmentation=False,
         single_transformer=train_opt.single_transformer,
-        shared_transformer=train_opt.shared_transformer,
+        shared_transformation=train_opt.shared_transformation,
     )
 
     p2s_model.cuda(device=device)  # same order as in training
@@ -316,7 +316,7 @@ def points_to_surf_eval(eval_opt):
         if not hasattr(train_opt, 'single_transformer'):
             train_opt.single_transformer = 0
         if not hasattr(train_opt, 'shared_transformer'):
-            train_opt.shared_transformer = False
+            train_opt.shared_transformation = False
 
         output_ids = get_output_ids(train_opt)
         
