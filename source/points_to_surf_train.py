@@ -256,7 +256,7 @@ def points_to_surf_train(opt):
         sub_sample_size=opt.sub_sample_size,
         do_augmentation=True,
         single_transformer=opt.single_transformer,
-        shared_transformation=opt.shared_transformation,
+        shared_transformation=opt.shared_transformer,
     )
 
     start_epoch = 0
