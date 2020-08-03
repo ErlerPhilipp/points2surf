@@ -7,13 +7,14 @@ NAME=${NAME#train_}
 python full_train.py \
     --name ${NAME}  \
     --desc ${NAME}  \
-    --indir 'datasets/abc'  \
+    --indir 'datasets/abc_train'  \
     --outdir 'models'  \
     --logdir 'logs' \
     --trainset 'trainset.txt'  \
     --testset 'valset.txt'  \
     --nepoch 50  \
     --lr 0.01  \
+    --scheduler_steps 75 125  \
     --debug 0  \
     --workers 22  \
     --batchSize 501  \

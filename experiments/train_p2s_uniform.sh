@@ -7,7 +7,7 @@ NAME=${NAME#train_}
 python full_train.py \
     --name ${NAME}  \
     --desc ${NAME}  \
-    --indir 'datasets/implicit_surf_14'  \
+    --indir 'datasets/abc_train'  \
     --outdir 'models'  \
     --logdir 'logs' \
     --trainset 'trainset.txt'  \
