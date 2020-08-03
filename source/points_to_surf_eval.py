@@ -160,7 +160,7 @@ def make_regressor(train_opt, pred_dim, model_filename, device):
         sub_sample_size=train_opt.sub_sample_size,
         do_augmentation=False,
         single_transformer=train_opt.single_transformer,
-        shared_transformation=train_opt.shared_transformation,
+        shared_transformation=train_opt.shared_transformer,
     )
 
     p2s_model.cuda(device=device)  # same order as in training
