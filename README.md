@@ -46,7 +46,7 @@ python full_run.py
 ```
 
 
-## Reconstruct Surface
+## Reconstruct Surfaces from our Point Clouds
 
 Reconstruct meshes from a point clouds to replicate our results:
 ``` bash
@@ -86,8 +86,11 @@ bash experiments/eval_p2s_max.sh
 
 Each eval script reconstructs all test sets using the specified model. Running one evaluation takes around one day on a normal PC with e.g. a 1070 GTX and grid resolution = 256.
 
+To get the best results, take the Max model. It's 15% smaller and produces 4% better results (mean Chamfer distance over all test sets) than the Vanilla model. It avoids the QSTN and uses uniform sub-sampling.
 
-## Training
+
+## Training with our Dataset
+
 To train the P2S models from the paper with our training set:
 ``` bash
 # download the ABC training and validation set

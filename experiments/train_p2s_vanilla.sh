@@ -24,7 +24,7 @@ python full_train.py \
     --cache_capacity 30  \
     --patch_radius 0.0  \
     --single_transformer 0  \
-    --shared_transformer 0  \
+    --shared_transformer 1  \
     --uniform_subsample 0 \
     --use_point_stn 1  \
     --patch_center 'mean'  \
