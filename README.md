@@ -1,8 +1,8 @@
-# Points2Surf (ECCV 2020)
+# Points2Surf (ECCV 2020 Spotlight)
 Learning Implicit Surfaces from Point Clouds
 
 
-## This repo is not yet finished! The minimal working example is ready but some parts of the code are messy/untested. The full datasets will be available until ECCV 2020.
+## We are continuing to improve the code and documentation. Please reach out if you run into problems.
 
 
 This is our implementation of [Points2Surf](https://www.cg.tuwien.ac.at/research/publications/2020/erler-p2s/),
@@ -77,7 +77,7 @@ bash experiments/eval_p2s_uniform.sh
 bash experiments/eval_p2s_vanilla_ablation.sh
 
 # additional ablation models, trained for 50 epochs
-bash experiments/eval_p2s_full_regression.sh
+bash experiments/eval_p2s_regression.sh
 bash experiments/eval_p2s_shared_encoder.sh
 
 # best model based on the ablation results, trained for 250 epochs
@@ -109,7 +109,7 @@ bash experiments/train_p2s_uniform.sh
 bash experiments/train_p2s_vanilla_ablation.sh
 
 # additional ablation models, train for 50 epochs
-bash experiments/train_p2s_full_regression.sh
+bash experiments/train_p2s_regression.sh
 bash experiments/train_p2s_shared_encoder.sh
 
 # best model based on the ablation results, train for 250 epochs
