@@ -121,6 +121,10 @@ bash experiments/train_p2s_max.sh
 
 With 4 RTX 2080Ti, we trained around 5 days to 150 epochs. Full convergence is at 200-250 epochs but the Chamfer distance doesn't change much. The topological noise might be reduced, though.
 
+Logging of loss (absolute distance, sign logits and both) with Tensorboard is done by default. Additionally, we log the accuracy, recall and F1 score for the sign prediction. You can start a Tensorboard server with: 
+``` bash
+bash start_tensorboard.sh
+```
 
 ## Make your own Datasets
 
