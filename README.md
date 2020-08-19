@@ -2,13 +2,13 @@
 Learning Implicit Surfaces from Point Clouds
 
 
-## We are continuing to improve the code and documentation. Please reach out if you run into problems.
+## ECCV Q&A sessions will be on Monday, 2020-08-24 at 6:00 and 14:00 (poster sessions), as well as 12:30 (spotlight session), all UTC+1
 
 
 This is our implementation of [Points2Surf](https://www.cg.tuwien.ac.at/research/publications/2020/erler-p2s/),
-a network that estimates a signed distance function from point clouds. This SDF is turned into a mesh with Marching Cubes.
+a network that estimates a signed distance function from point clouds. This SDF is turned into a mesh with Marching Cubes. For more details, please watch the [short video](https://www.cg.tuwien.ac.at/research/publications/2020/erler-p2s/erler-p2s-short%20video.mp4) and [long video](https://www.cg.tuwien.ac.at/research/publications/2020/erler-p2s/erler-p2s-long%20video.mp4).
 
-![PCPNet estimates local point cloud properties](images/teaser.png)
+![Points2Surf reconstructs objects from arbitrary points clouds more accurately than DeepSDF, AtlasNet and Screened Poisson Surface Reconstruction.](images/teaser.png)
 
 The architecture is similar to [PCPNet](https://github.com/paulguerrero/pcpnet/). In contrast to other ML-based surface reconstruction methods, e.g. [DeepSDF](https://github.com/facebookresearch/DeepSDF) and [AtlasNet](https://github.com/ThibaultGROUEIX/AtlasNet), Points2Surf is patch-based and therefore independent from classes. The strongly improved generalization leads to much better results, even better than [Screened Poisson Surface Reconstruction](http://hhoppe.com/proj/screenedpoisson/) in most cases.
 
@@ -171,6 +171,28 @@ python make_dataset_pc.py
 ### Manually Created Dataset for Reconstruction
 
 In case you already have your point clouds as Numpy files, you can create a dataset manually. Put the *.npy files in the `(DATASET_NAME)/04_pts/` directory. Then, you need to list the names (without extensions, one per line) in a textfile `(DATASET_NAME)/testset.txt`.
+
+
+## Related Work
+
+### [Kazhdan, Michael, and Hugues Hoppe. "Screened poisson surface reconstruction." ACM Transactions on Graphics (ToG) 32.3 (2013): 1-13.](https://dl.acm.org/doi/abs/10.1145/2487228.2487237)
+
+This work is the most important baseline for surface reconstruction. It fits a surface into a point cloud.
+
+
+### [Groueix, Thibault, et al. "A papier-mâché approach to learning 3d surface generation." Proceedings of the IEEE conference on computer vision and pattern recognition. 2018.](https://openaccess.thecvf.com/content_cvpr_2018/html/Groueix_A_Papier-Mache_Approach_CVPR_2018_paper.html)
+
+This is one of the first data-driven methods for surface reconstruction. It learns to approximate objects with 'patches', deformed and subdivided rectangles.
+
+
+### [Park, Jeong Joon, et al. "Deepsdf: Learning continuous signed distance functions for shape representation." Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition. 2019.](https://openaccess.thecvf.com/content_CVPR_2019/html/Park_DeepSDF_Learning_Continuous_Signed_Distance_Functions_for_Shape_Representation_CVPR_2019_paper.html)
+
+This is one of the first data-driven methods for surface reconstruction. It learns to approximate a signed distance function from points.
+
+
+### [Chabra, Rohan, et al. "Deep Local Shapes: Learning Local SDF Priors for Detailed 3D Reconstruction." arXiv preprint arXiv:2003.10983 (2020).](https://arxiv.org/abs/2003.10983)
+
+This concurrent work uses a similar approach as ours. It produces smooth surfaces but requires point normals.
 
 
 ## Citation
