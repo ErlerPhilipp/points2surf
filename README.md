@@ -1,9 +1,4 @@
-# Points2Surf (ECCV 2020 Spotlight)
-Learning Implicit Surfaces from Point Clouds
-
-
-## ECCV Q&A sessions will be on Monday, 2020-08-24 at 6:00 and 14:00 (poster sessions), as well as 12:30 (spotlight session), all UTC+1
-
+# Points2Surf: Learning Implicit Surfaces from Point Clouds (ECCV 2020 Spotlight)
 
 This is our implementation of [Points2Surf](https://www.cg.tuwien.ac.at/research/publications/2020/erler-p2s/),
 a network that estimates a signed distance function from point clouds. This SDF is turned into a mesh with Marching Cubes. For more details, please watch the [short video](https://www.cg.tuwien.ac.at/research/publications/2020/erler-p2s/erler-p2s-short%20video.mp4) and [long video](https://www.cg.tuwien.ac.at/research/publications/2020/erler-p2s/erler-p2s-long%20video.mp4).
