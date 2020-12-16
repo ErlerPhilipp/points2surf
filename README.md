@@ -1,7 +1,7 @@
 # Points2Surf: Learning Implicit Surfaces from Point Clouds (ECCV 2020 Spotlight)
 
 This is our implementation of [Points2Surf](https://www.cg.tuwien.ac.at/research/publications/2020/erler-2020-p2s/),
-a network that estimates a signed distance function from point clouds. This SDF is turned into a mesh with Marching Cubes. For more details, please watch the [short video](https://www.cg.tuwien.ac.at/research/publications/2020/erler-p2s/erler-p2s-short%20video.mp4) and [long video](https://www.cg.tuwien.ac.at/research/publications/2020/erler-p2s/erler-p2s-long%20video.mp4).
+a network that estimates a signed distance function from point clouds. This SDF is turned into a mesh with Marching Cubes. For more details, please watch the [short video](https://www.cg.tuwien.ac.at/research/publications/2020/erler-2020-p2s/erler-2020-p2s-short%20video.mp4) and [long video](https://www.cg.tuwien.ac.at/research/publications/2020/erler-2020-p2s/erler-2020-p2s-long%20video.mp4).
 
 ![Points2Surf reconstructs objects from arbitrary points clouds more accurately than DeepSDF, AtlasNet and Screened Poisson Surface Reconstruction.](images/teaser.png)
 

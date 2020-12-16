@@ -2,7 +2,7 @@ import os
 import zipfile
 import urllib.request
 
-source_url = r'https://www.cg.tuwien.ac.at/research/publications/2020/erler-p2s/erler-p2s-vanilla_model.zip'
+source_url = r'https://www.cg.tuwien.ac.at/research/publications/2020/erler-2020-p2s/erler-2020-p2s-vanilla_model.zip'
 target_dir = os.path.dirname(os.path.abspath(__file__))
 target_file = os.path.join(target_dir, 'models.zip')
 
