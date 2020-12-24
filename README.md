@@ -157,9 +157,9 @@ The ABC var-noise dataset with about 5k shapes takes around 8 hours using 15 wor
 
 If you only want to reconstruct your own point clouds, place them in `./datasets/(DATASET_NAME)/00_base_pc/`. The accepted file types are the same as for meshes.
 
-You need to change some settings like the dataset name and the number of worker processes in `make_dataset_pc.py` and then run it with:
+You need to change some settings like the dataset name and the number of worker processes in `make_pc_dataset.py` and then run it with:
 ```
-python make_dataset_pc.py
+python make_pc_dataset.py
 ```
 
 
