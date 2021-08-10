@@ -7,6 +7,7 @@ import random
 import math
 import shutil
 import numbers
+import numpy as np
 
 import torch
 import torch.nn.parallel
@@ -47,7 +48,7 @@ def parse_arguments(args=None):
                         help='print logging info each n epochs')
     parser.add_argument('--refine', type=str, default='',
                         help='refine model at this path')
-    parser.add_argument('--gpu_idx', type=int, default=0,
+    parser.add_argument('--gpu_idx', type=int, default=[0], nargs='+',
                         help='set < 0 to use CPU')
     parser.add_argument('--patch_radius', type=float, default=0.05,
                         help='Neighborhood of points that is queried with the network. '
@@ -85,6 +86,9 @@ def parse_arguments(args=None):
     parser.add_argument('--uniform_subsample', type=int, default=0,
                         help='1: global sub-sample uniformly sampled from the point cloud\n'
                              '0: distance-depending probability for global sub-sample')
+    parser.add_argument('--fixed_subsample', type=int, default=0,
+                        help='1: use the same fixed sub-sample for all patches\n'
+                             '0: use a different random sub-sample for each patch')
     parser.add_argument('--shared_transformer', type=int, default=0,
                         help='use a single shared QSTN that takes both the local and global point sets as input')
     parser.add_argument('--training_order', type=str, default='random',
@@ -162,9 +166,10 @@ def do_logging(writer, log_prefix, epoch, opt, loss,
 
 def points_to_surf_train(opt):
 
-    device = torch.device("cpu" if opt.gpu_idx < 0 else "cuda:%d" % opt.gpu_idx)
-    print('Training on {} GPUs'.format(torch.cuda.device_count()))
-    print('Training on ' + ('cpu' if opt.gpu_idx < 0 else torch.cuda.get_device_name(opt.gpu_idx)))
+    devices = [torch.device('cpu' if gi < 0 else f'cuda:{gi}') for gi in opt.gpu_idx]
+    print(f'Training on {len(devices)} devices:')
+    for device in devices:
+        print(f'  {str(device)}')
 
     # colored console output, works e.g. on Ubuntu (WSL)
     green = lambda x: '\033[92m' + x + '\033[0m'
@@ -262,8 +267,8 @@ def points_to_surf_train(opt):
     start_epoch = 0
     if opt.refine != '':
         print(f'Refining weights from {opt.refine}')
-        p2s_model.cuda(device=device)  # same order as in training
-        p2s_model = torch.nn.DataParallel(p2s_model)
+        p2s_model.cuda(device=devices[0])  # same order as in training
+        p2s_model = torch.nn.DataParallel(p2s_model, device_ids=devices)
         p2s_model.load_state_dict(torch.load(opt.refine))
         try:
             # expecting a file name like 'vanilla_model_50.pth'
@@ -300,6 +305,7 @@ def points_to_surf_train(opt):
         patch_radius=opt.patch_radius,
         epsilon=-1,  # not necessary for training
         uniform_subsample=opt.uniform_subsample,
+        fixed_subsample=opt.fixed_subsample,
     )
     if opt.training_order == 'random':
         train_datasampler = data_loader.RandomPointcloudPatchSampler(
@@ -316,11 +322,19 @@ def points_to_surf_train(opt):
     else:
         raise ValueError('Unknown training order: %s' % opt.training_order)
 
+    def seed_train_worker(worker_id):
+        worker_seed = torch.initial_seed() % 2**32 # initial_seed returns a different seed for each worker and each epoch (as a long, so it needs to be cast to an int)
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
+        train_dataset.rng.seed(worker_seed)
+        train_dataset.rng_global_sample.seed(worker_seed)
+    
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         sampler=train_datasampler,
         batch_size=opt.batchSize,
-        num_workers=int(opt.workers))
+        num_workers=int(opt.workers),
+        worker_init_fn=seed_train_worker)
 
     test_dataset = data_loader.PointcloudPatchDataset(
         root=opt.indir,
@@ -338,6 +352,7 @@ def points_to_surf_train(opt):
         num_workers=int(opt.workers),
         epsilon=-1,  # not necessary for training
         uniform_subsample=opt.uniform_subsample,
+        fixed_subsample=opt.fixed_subsample,
     )
     if opt.training_order == 'random':
         test_datasampler = data_loader.RandomPointcloudPatchSampler(
@@ -354,11 +369,19 @@ def points_to_surf_train(opt):
     else:
         raise ValueError('Unknown training order: %s' % opt.training_order)
 
+    def seed_test_worker(worker_id):
+        worker_seed = torch.initial_seed() % 2**32 # initial_seed returns a different seed for each worker and each epoch (as a long, so it needs to be cast to an int)
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
+        test_dataset.rng.seed(worker_seed)
+        test_dataset.rng_global_sample.seed(worker_seed)
+    
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
         sampler=test_datasampler,
         batch_size=opt.batchSize,
-        num_workers=int(opt.workers))
+        num_workers=int(opt.workers),
+        worker_init_fn=seed_test_worker)
 
     # keep the exact training shape names for later reference
     opt.train_shapes = train_dataset.shape_names
@@ -385,8 +408,8 @@ def points_to_surf_train(opt):
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=opt.scheduler_steps, gamma=0.1)
 
     if opt.refine == '':
-        p2s_model.cuda(device=device)
-        p2s_model = torch.nn.DataParallel(p2s_model)
+        p2s_model.cuda(device=devices[0])
+        p2s_model = torch.nn.DataParallel(p2s_model, device_ids=devices)
 
     train_num_batch = len(train_dataloader)
     test_num_batch = len(test_dataloader)
@@ -410,7 +433,7 @@ def points_to_surf_train(opt):
 
             # batch data to GPU
             for key in batch_data_train.keys():
-                batch_data_train[key] = batch_data_train[key].cuda(non_blocking=True)
+                batch_data_train[key] = batch_data_train[key].cuda(device=devices[0], non_blocking=True)
 
             # set to training mode
             p2s_model.train()
@@ -461,7 +484,7 @@ def points_to_surf_train(opt):
 
                 # batch data to GPU
                 for key in batch_data_test.keys():
-                    batch_data_test[key] = batch_data_test[key].cuda(non_blocking=True)
+                    batch_data_test[key] = batch_data_test[key].cuda(device=devices[0], non_blocking=True)
 
                 # forward pass
                 with torch.no_grad():

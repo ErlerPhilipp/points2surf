@@ -119,6 +119,7 @@ def make_dataset(train_opt, eval_opt):
         patch_radius=train_opt.patch_radius,
         epsilon=eval_opt.epsilon,  # not necessary for training
         uniform_subsample=train_opt.uniform_subsample if 'uniform_subsample' in train_opt else 0,
+        fixed_subsample=train_opt.fixed_subsample if 'fixed_subsample' in train_opt else 0,
     )
     return dataset
 

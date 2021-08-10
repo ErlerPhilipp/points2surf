@@ -193,10 +193,10 @@ def _get_dist_from_patch_planes_single_file(file_in_pts_abs, file_in_normals_abs
     np.save(file_out_dists_abs, dists)
 
 
-def get_point_cloud_sub_sample(sub_sample_size, pts_ms, query_point_ms, uniform=False):
+def get_point_cloud_sub_sample(sub_sample_size, pts_ms, query_point_ms, rng, uniform=False, fixed=False):
     # take random subsample from point cloud
     if pts_ms.shape[0] >= sub_sample_size:
-        # np.random.seed(42)  # test if the random subset causes the irregularities
+
         def dist_prob():  # probability decreasing with distance from query point
             query_pts = np.broadcast_to(query_point_ms, pts_ms.shape)
             dist = cartesian_dist(query_pts, pts_ms)
@@ -207,18 +207,21 @@ def get_point_cloud_sub_sample(sub_sample_size, pts_ms, query_point_ms, uniform=
             prob_normalized = prob_clipped / np.sum(prob_clipped)
             return prob_normalized
 
+        if fixed:
+            rng.seed(42)
+
         if uniform:
             # basically choice
             # with replacement for better performance, shouldn't hurt with large point clouds
-            sub_sample_ids = np.random.randint(low=0, high=pts_ms.shape[0], size=sub_sample_size)
+            sub_sample_ids = rng.randint(low=0, high=pts_ms.shape[0], size=sub_sample_size)
         else:
             prob = dist_prob()
-            sub_sample_ids = np.random.choice(pts_ms.shape[0], size=sub_sample_size, replace=False, p=prob)
+            sub_sample_ids = rng.choice(pts_ms.shape[0], size=sub_sample_size, replace=False, p=prob)
         pts_sub_sample_ms = pts_ms[sub_sample_ids, :]
     # if not enough take shuffled point cloud and fill with zeros
     else:
         pts_shuffled = pts_ms[:, :3]
-        np.random.shuffle(pts_shuffled)
+        rng.shuffle(pts_shuffled)
         zeros_padding = np.zeros((sub_sample_size - pts_ms.shape[0], 3), dtype=np.float32)
         pts_sub_sample_ms = np.concatenate((pts_shuffled, zeros_padding), axis=0)
     return pts_sub_sample_ms
