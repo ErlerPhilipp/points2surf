@@ -217,7 +217,7 @@ class PointcloudPatchDataset(data.Dataset):
                  seed=None, identical_epochs=False, center='point',
                  cache_capacity=1, point_count_std=0.0,
                  pre_processed_patches=False, query_grid_resolution=None,
-                 sub_sample_size=500, reconstruction=False, uniform_subsample=False,
+                 sub_sample_size=500, reconstruction=False, uniform_subsample=False, fixed_subsample=False,
                  num_workers=1):
 
         # initialize parameters
@@ -237,6 +237,7 @@ class PointcloudPatchDataset(data.Dataset):
         self.num_workers = num_workers
         self.epsilon = epsilon
         self.uniform_subsample = uniform_subsample
+        self.fixed_subsample = fixed_subsample
 
         self.include_connectivity = False
         self.include_imp_surf = False
@@ -265,10 +266,15 @@ class PointcloudPatchDataset(data.Dataset):
         self.shape_names = [x.strip() for x in self.shape_names]
         self.shape_names = list(filter(None, self.shape_names))
 
-        # initialize rng for picking points in a patch
+        # initialize rng for picking points in the local subsample of a patch
         if self.seed is None:
             self.seed = np.random.random_integers(0, 2**32-1, 1)[0]
         self.rng = np.random.RandomState(self.seed)
+
+        # initialize rng for picking points in the global subsample of a patch
+        if self.seed is None:
+            self.seed = np.random.random_integers(0, 2**32-1, 1)[0]
+        self.rng_global_sample = np.random.RandomState(self.seed)
 
         # get basic information for each shape in the dataset
         self.shape_patch_count = []
@@ -367,7 +373,8 @@ class PointcloudPatchDataset(data.Dataset):
         if self.sub_sample_size > 0:
             pts_sub_sample_ms = utils.get_point_cloud_sub_sample(
                 sub_sample_size=self.sub_sample_size, pts_ms=shape.pts,
-                query_point_ms=imp_surf_query_point_ms, uniform=self.uniform_subsample)
+                query_point_ms=imp_surf_query_point_ms, rng=self.rng_global_sample,
+                uniform=self.uniform_subsample, fixed=self.fixed_subsample)
         else:
             pts_sub_sample_ms = np.array([], dtype=np.float32)
 

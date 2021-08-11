@@ -4,7 +4,7 @@ import urllib.request
 
 source_url = r'https://www.cg.tuwien.ac.at/research/publications/2020/erler-2020-p2s/erler-2020-p2s-thingi10k.zip'
 target_dir = os.path.dirname(os.path.abspath(__file__))
-target_file = os.path.join(target_dir, 'models.zip')
+target_file = os.path.join(target_dir, 'datasets_thingi10k.zip')
 
 downloaded = 0
 def show_progress(count, block_size, total_size):
