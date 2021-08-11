@@ -320,7 +320,8 @@ def points_to_surf_train(opt):
         train_dataset,
         sampler=train_datasampler,
         batch_size=opt.batchSize,
-        num_workers=int(opt.workers))
+        num_workers=int(opt.workers),
+        persistent_workers=True)
 
     test_dataset = data_loader.PointcloudPatchDataset(
         root=opt.indir,
@@ -358,7 +359,8 @@ def points_to_surf_train(opt):
         test_dataset,
         sampler=test_datasampler,
         batch_size=opt.batchSize,
-        num_workers=int(opt.workers))
+        num_workers=int(opt.workers),
+        persistent_workers=True)
 
     # keep the exact training shape names for later reference
     opt.train_shapes = train_dataset.shape_names
