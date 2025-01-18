@@ -1,5 +1,7 @@
 # Points2Surf: Learning Implicit Surfaces from Point Clouds (ECCV 2020 Spotlight)
 
+[<img src="https://api.gitsponsors.com/api/badge/img?id=277855446" height="20">](https://api.gitsponsors.com/api/badge/link?p=kkh1dwC2sS0d9de9cEN+aPSJ7YTBQLtpXBXSrzhwHxptWSiTGsSMy6VxIw4cxE7cHxfvPz/UHAcTbNtB0/+L8w==)
+
 Please see our follow-up work [PPSurf](https://github.com/cg-tuwien/ppsurf). It's easier to use, much faster and better.
 
 This is our implementation of [Points2Surf](https://www.cg.tuwien.ac.at/research/publications/2020/erler-2020-p2s/),
