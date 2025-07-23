@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.spatial as spatial
+import trimesh
 
 from source.base import file_utils
 
@@ -191,3 +192,29 @@ def get_patch_kdtree(
             patch_pts_ids = np.concatenate((patch_pts_ids, padding), axis=0)
 
     return patch_pts_ids
+
+
+def get_closest_distance_batched(query_pts: np.ndarray, mesh: trimesh.Trimesh, batch_size=1000, workers=0):
+    import multiprocessing
+    num_of_cpu = multiprocessing.cpu_count() if workers <= 0 else workers
+    
+    import source.base.utils_mp as utils_mp
+    import trimesh.proximity
+
+    # process batches because trimesh's signed_distance very inefficient on memory
+    # 3k queries on a mesh with 27k vertices and 55k faces takes around 8 GB of RAM
+    # dists_ms = np.zeros((query_pts.shape[0],))
+    pts_ids = np.arange(query_pts.shape[0])
+    pts_ids_split = np.array_split(pts_ids, max(1, int(query_pts.shape[0] / batch_size)))
+    params = []
+    for pts_ids_batch in pts_ids_split:
+        # dists_ms[pts_ids_batch] = trimesh.proximity.closest_point(mesh, query_pts[pts_ids_batch])[1]
+        params.append((mesh, query_pts[pts_ids_batch]))
+
+    dist_list = utils_mp.start_process_pool(trimesh.proximity.closest_point, params, num_of_cpu)
+    pts_closest = np.concatenate([d[0] for d in dist_list])
+    dists = np.concatenate([d[1] for d in dist_list])
+    face_ids = np.concatenate([d[2] for d in dist_list])
+
+    # print('got distances for {} vertices'.format(query_pts.shape[0]))
+    return pts_closest, dists, face_ids

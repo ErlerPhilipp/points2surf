@@ -19,28 +19,6 @@ def get_normalization_target(distances: list, cut_percentil=0.9):
         return dist_concat_sorted[-1]
 
 
-def get_closest_distance_batched(query_pts: np.ndarray, mesh: trimesh.Trimesh, batch_size=1000):
-
-    import multiprocessing
-    num_of_cpu = multiprocessing.cpu_count()
-
-    # process batches because trimesh's signed_distance very inefficient on memory
-    # 3k queries on a mesh with 27k vertices and 55k faces takes around 8 GB of RAM
-    # dists_ms = np.zeros((query_pts.shape[0],))
-    pts_ids = np.arange(query_pts.shape[0])
-    pts_ids_split = np.array_split(pts_ids, max(1, int(query_pts.shape[0] / batch_size)))
-    params = []
-    for pts_ids_batch in pts_ids_split:
-        # dists_ms[pts_ids_batch] = trimesh.proximity.closest_point(mesh, query_pts[pts_ids_batch])[1]
-        params.append((mesh, query_pts[pts_ids_batch]))
-
-    dist_list = utils_mp.start_process_pool(trimesh.proximity.closest_point, params, num_of_cpu)
-    dists = np.concatenate([d[1] for d in dist_list])
-
-    print('got distances for {} vertices'.format(query_pts.shape[0]))
-    return dists
-
-
 def visualize_mesh_with_distances(mesh_file: str, mesh: trimesh.Trimesh,
                                   dist_per_vertex: np.ndarray, normalize_to: float, cut_percentil=0.9):
 
@@ -69,6 +47,7 @@ def visualize_mesh_with_distances(mesh_file: str, mesh: trimesh.Trimesh,
 def make_distance_comparison(in_file_rec_meshes: list, in_file_gt_mesh, cut_percentil=0.9, batch_size=1000):
 
     import trimesh.proximity
+    from source.base.point_cloud import get_closest_distance_batched
 
     meshes_rec = [trimesh.load(in_file_rec_mesh) for in_file_rec_mesh in in_file_rec_meshes]
     if type(in_file_gt_mesh) == str:
@@ -80,10 +59,10 @@ def make_distance_comparison(in_file_rec_meshes: list, in_file_gt_mesh, cut_perc
 
     # vertices_rec_dists = [trimesh.proximity.closest_point(mesh_gt, mesh_rec.vertices)[1] for mesh_rec in meshes_rec]
     if type(in_file_gt_mesh) == str:
-        vertices_rec_dists = [get_closest_distance_batched(mesh_rec.vertices, mesh_gt, batch_size)
+        vertices_rec_dists = [get_closest_distance_batched(mesh_rec.vertices, mesh_gt, batch_size)[1]
                               for mesh_rec in meshes_rec]
     elif type(in_file_gt_mesh) == list:
-        vertices_rec_dists = [get_closest_distance_batched(mesh_rec.vertices, mesh_gt[mi], batch_size)
+        vertices_rec_dists = [get_closest_distance_batched(mesh_rec.vertices, mesh_gt[mi], batch_size)[1]
                               for mi, mesh_rec in enumerate(meshes_rec)]
     else:
         raise ValueError('Not implemented!')
