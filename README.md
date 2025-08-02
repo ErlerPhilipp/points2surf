@@ -192,6 +192,11 @@ This is one of the first data-driven methods for surface reconstruction. It lear
 This concurrent work uses a similar approach as ours. It produces smooth surfaces but requires point normals.
 
 
+## News
+
+2025-08-02: Add scanner poses and surface normals to dataset generation. See `make_dataset.py` for an example for how to extract and use the information.
+
+
 ## Citation
 If you use our work, please cite our paper:
 ```
