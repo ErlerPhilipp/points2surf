@@ -119,11 +119,35 @@ def normalize_meshes(base_dir, in_dir, out_dir, dataset_dir, num_processes=1):
         call_params += [(in_file_abs, out_file_abs)]
 
     utils_mp.start_process_pool(_normalize_mesh, call_params, num_processes)
+    
+    
+def _blensor_vs_to_ws(pts_vs, obj_location, scanner_rotation_inv):
 
+    def _revert_offset(pts_data: np.ndarray, inv_offset: np.ndarray):
+        pts_reverted = pts_data
+        # don't just check the header because missing rays may be added with NaNs
+        if pts_reverted.shape[0] > 0:
+            pts_offset_correction = np.broadcast_to(inv_offset, pts_reverted.shape)
+            pts_reverted += pts_offset_correction
 
-def _pcd_files_to_pts(pcd_files, mesh_file, pts_file_raw_npy, pts_file_npy, pts_file, obj_locations, obj_rotations, min_pts_size=0, debug=False):
+        return pts_reverted
+
+    # undo coordinate system changes
+    pts_ws = utils.right_handed_to_left_handed(pts_vs)
+
+    # move back from camera distance, always along x axis
+    _revert_offset(pts_ws, -obj_location)
+
+    # get and apply inverse rotation matrix of camera
+    pts_ws = trafo.transform_points(pts_ws, scanner_rotation_inv, translate=False)
+
+    return pts_ws
+    
+
+def _pcd_files_to_pts(pcd_files, mesh_file, pts_file_raw_npy, pts_file_npy, pts_file, obj_locations, obj_rotations, hits_per_scan_file, min_pts_size=0, debug=False):
     """
     Convert pcd blensor results to xyz or directly to npy files. Merge front and back scans.
+    Stores the number of hits per scan position.
     Moving the object instead of the camera because the point cloud is in some very weird space that behaves
     crazy when the camera moves. A full day wasted on this shit!
     :param pcd_files:
@@ -138,15 +162,6 @@ def _pcd_files_to_pts(pcd_files, mesh_file, pts_file_raw_npy, pts_file_npy, pts_
 
     import gzip
     from source.base.point_cloud import get_closest_distance_batched
-
-    def revert_offset(pts_data: np.ndarray, inv_offset: np.ndarray):
-        pts_reverted = pts_data
-        # don't just check the header because missing rays may be added with NaNs
-        if pts_reverted.shape[0] > 0:
-            pts_offset_correction = np.broadcast_to(inv_offset, pts_reverted.shape)
-            pts_reverted += pts_offset_correction
-
-        return pts_reverted
 
     # https://www.blensor.org/numpy_import.html
     # timestamp
@@ -164,21 +179,10 @@ def _pcd_files_to_pts(pcd_files, mesh_file, pts_file_raw_npy, pts_file_npy, pts_
         # noisy_xyz = hits[:, [8, 9, 10]]
         return hits
     
-    def blensor_vs_to_ws(pts_vs, obj_location, scanner_rotation_inv):
-        # undo coordinate system changes
-        pts_ws = utils.right_handed_to_left_handed(pts_vs)
-
-        # move back from camera distance, always along x axis
-        revert_offset(pts_ws, -obj_location)
-
-        # get and apply inverse rotation matrix of camera
-        pts_ws = trafo.transform_points(pts_ws, scanner_rotation_inv, translate=False)
-
-        return pts_ws
-    
     pts_raw_to_cat = []
     pts_ws_to_cat = []
     pts_ws_noisefree_to_cat = []
+    hits_per_scan = []
     for fi, f in enumerate(pcd_files):
         try:
             if f.endswith('.numpy') or f.endswith('.numpy.gz'):
@@ -194,11 +198,12 @@ def _pcd_files_to_pts(pcd_files, mesh_file, pts_file_raw_npy, pts_file_npy, pts_
             print('Error processing {}: {}'.format(f, er))
             continue
         
+        hits_per_scan.append(samples_hits_vs.shape[0])
         obj_location = np.array(obj_locations[fi])
         scanner_rotation_inv = trafo.quaternion_matrix(trafo.quaternion_conjugate(obj_rotations[fi]))
         
-        pts_ws = blensor_vs_to_ws(samples_hits_vs[:, 8:11], obj_location, scanner_rotation_inv)
-        pts_noisefree_ws = blensor_vs_to_ws(samples_hits_vs[:, 5:8], obj_location, scanner_rotation_inv)
+        pts_ws = _blensor_vs_to_ws(samples_hits_vs[:, 8:11], obj_location, scanner_rotation_inv)
+        pts_noisefree_ws = _blensor_vs_to_ws(samples_hits_vs[:, 5:8], obj_location, scanner_rotation_inv)
         
         if pts_ws.shape[0] > 0:
             pts_ws_to_cat += [pts_ws]
@@ -214,7 +219,7 @@ def _pcd_files_to_pts(pcd_files, mesh_file, pts_file_raw_npy, pts_file_npy, pts_
     np.savez_compressed(pts_file_raw_npy, pts_data_raw)
 
     if len(pts_ws_to_cat) == 0:  # no hits
-        print('No scanner hits for object {} in {} scans'.format(os.path.basename(mesh_files[fi]), len(pcd_files)))
+        print('No scanner hits for object {} in {} scans'.format(os.path.basename(mesh_file), len(pcd_files)))
         return
     
     # load corresponding mesh and get face ids closest to noise-free points
@@ -230,6 +235,8 @@ def _pcd_files_to_pts(pcd_files, mesh_file, pts_file_raw_npy, pts_file_npy, pts_
 
     if pts_merged.shape[0] > min_pts_size:
         point_cloud.write_ply(file_path=pts_file, points=pts_merged[:, :3], normals=pts_merged[:, 3:])
+
+    np.savez_compressed(hits_per_scan_file, hits_per_scan=np.array(hits_per_scan, dtype=np.int32))
 
 
 def sample_blensor(base_dir, dataset_dir, blensor_bin, dir_in, dir_out_raw, 
@@ -269,6 +276,8 @@ def sample_blensor(base_dir, dataset_dir, blensor_bin, dir_in, dir_out_raw,
     os.makedirs(dir_abs_out_blensor, exist_ok=True)
     os.makedirs(dir_abs_out_locations, exist_ok=True)
     os.makedirs(dir_abs_out_rotations, exist_ok=True)
+    dir_abs_out_hits_per_scan = os.path.join(base_dir, dataset_dir, '04_hits_per_scan')
+    os.makedirs(dir_abs_out_hits_per_scan, exist_ok=True)
 
     with open('blensor_script_template.py', 'r') as file:
         blensor_script_template = file.read()
@@ -363,9 +372,10 @@ def sample_blensor(base_dir, dataset_dir, blensor_bin, dir_in, dir_out_raw,
         xyz_file = os.path.join(dir_abs_out_vis, pcd_origin)
         xyz_raw_npy_file = os.path.join(dir_abs_out_raw, pcd_origin + '.npz')
         xyz_npy_file = os.path.join(dir_abs_out, pcd_origin + '.npy')
+        hits_per_scan_file = os.path.join(dir_abs_out_hits_per_scan, pcd_origin + '.npz')
 
-        if file_utils.call_necessary(pcd_files_abs, [xyz_npy_file, xyz_file, xyz_raw_npy_file, mesh_file]):
-            call_params += [(pcd_files_abs, mesh_file, xyz_raw_npy_file, xyz_npy_file, xyz_file, obj_locations[fi], obj_rotations[fi], min_pts_size)]
+        if file_utils.call_necessary(pcd_files_abs, [xyz_npy_file, xyz_file, xyz_raw_npy_file, mesh_file, hits_per_scan_file]):
+            call_params += [(pcd_files_abs, mesh_file, xyz_raw_npy_file, xyz_npy_file, xyz_file, obj_locations[fi], obj_rotations[fi], hits_per_scan_file, min_pts_size)]
 
     utils_mp.start_process_pool(_pcd_files_to_pts, call_params, num_processes)
 
@@ -758,7 +768,8 @@ def make_dataset(dataset_name: str, blensor_bin: str, base_dir: str, num_process
          '01_base_meshes_ply',
          '02_meshes_cleaned',
          '03_meshes',
-         '04_pts', '04_pts_raw', '04_pts_vis', '04_blensor_py', '04_pcd', '04_locations', '04_rotations',
+         '04_pts', '04_pts_raw', '04_pts_vis', '04_blensor_py', '04_locations', '04_rotations',  
+         # not '04_pcd' since it has multiple files per input file, the association is not implemented
          '05_patch_dists', '05_patch_ids', '05_query_dist', '05_query_pts',
          '05_patch_ids_grid', '05_query_pts_grid', '05_query_dist_grid',
          '06_poisson_rec', '06_mc_gt_recon', '06_poisson_rec_gt_normals',
@@ -839,17 +850,97 @@ def make_dataset(dataset_name: str, blensor_bin: str, base_dir: str, num_process
                         seed=seed, only_test_set=only_for_evaluation, testset_ratio=0.1)
 
 
-if __name__ == "__main__":
+def _test_dataset(file_name = '00010011_83bf511191ef439b90a1b26c_trimesh_001'):
+    """
+    Assemble data from one point cloud for verification.
+    """
+    import os
+    import numpy as np
+    from trimesh import transformations as trafo
+    from source.base import file_utils, point_cloud
 
+    base_dir = r'E:\datasets\p2s_pps\paropt'
+    dataset_name = 'abc_train_normals'
+    dataset_dir = os.path.join(base_dir, dataset_name)
+    output_dir = os.path.join(dataset_dir, '_debug')
+    output_file = os.path.join(output_dir, file_name + '.ply')
+
+    # pcd_file = os.path.join(dataset_dir, '04_pcd', file_name + '.numpy.gz')
+    # mesh_file = os.path.join(dataset_dir, '03_meshes', file_name + '.ply')
+    # pts_file_raw_npy = os.path.join(dataset_dir, '04_pts_raw', file_name + '.npy')
+    # pts_file_npy = os.path.join(dataset_dir, '04_pts', file_name + '.npy')
+    pts_file = os.path.join(dataset_dir, '04_pts_vis', file_name + '.ply')
+    hits_per_scan_file = os.path.join(dataset_dir, '04_hits_per_scan', file_name + '.ply.npz')
+    rotations_file = os.path.join(dataset_dir, '04_rotations', file_name + '.npz')
+    locations_file = os.path.join(dataset_dir, '04_locations', file_name + '.npz')
+
+    # get points and normals, special case see https://github.com/mikedh/trimesh/issues/1192
+    pointcloud = trimesh.load_mesh(pts_file)
+    pointcloud = pointcloud.metadata['_ply_raw']['vertex']['data']
+    pts = np.stack((pointcloud['x'], pointcloud['y'], pointcloud['z']), axis=-1)
+    normals = np.stack((pointcloud['nx'], pointcloud['ny'], pointcloud['nz']), axis=-1)
+
+    # get hits per scan contains the number of points per scan
+    hits_per_scan = np.load(hits_per_scan_file)['hits_per_scan']
+    
+    # assemble scanner matrices from object rotations and locations in view space of those scans
+    obj_rot_vs = np.load(rotations_file)['rotations']
+    obj_loc_vs = np.load(locations_file)['locations']
+    scanner_loc_ws: list[np.ndarray] = []
+    for i in range(len(obj_rot_vs)):
+        obj_rot_mat = trafo.quaternion_matrix(obj_rot_vs[i])
+        scanner_loc_ws.append(_blensor_vs_to_ws(np.zeros((1, 3)), obj_loc_vs[i], obj_rot_mat))
+
+    # calculate the direction to the scanner for each point
+    points = pts.copy()
+    colors = normals.copy()
+    dir_to_scanner = []
+    pts_hit_start_id = 0
+    for i in range(len(scanner_loc_ws)):
+        hits_this_scan = hits_per_scan[i]
+        pts_per_scan = points[pts_hit_start_id:pts_hit_start_id + hits_this_scan]
+        pts_hit_start_id += hits_this_scan
+        num_points = hits_this_scan
+        scanner_locations = scanner_loc_ws[i]
+        scanner_locations_duplicate = np.tile(scanner_locations, (num_points, 1))
+        dir_to_this_scanner = scanner_locations_duplicate - pts_per_scan
+        dir_to_this_scanner = dir_to_this_scanner / np.linalg.norm(dir_to_this_scanner, axis=1, keepdims=True)  # normalize
+        dir_to_scanner.append(dir_to_this_scanner)
+    dir_to_scanner = np.concatenate(dir_to_scanner)
+
+    # write output file
+    file_utils.make_dir_for_file(output_file)
+    point_cloud.write_ply(file_path=output_file, points=points, normals=dir_to_scanner, colors=colors)
+    
+
+if __name__ == "__main__":
+    
+    # test the camera positions for a few files
+    # file_names = [
+    #     '00010006_7e4956ae07e24f6584127385_trimesh_000',
+    #     '00010009_d97409455fa543b3a224250f_trimesh_000',
+    #     '00010011_83bf511191ef439b90a1b26c_trimesh_001',
+    #     '00010015_c909a395340949eeb1a90b25_trimesh_001',
+    #     '00010016_f9191e596ce343e1b16f56f8_trimesh_000',
+    #     '00010045_75f31cb4dff84986aadc622b_trimesh_006',
+    # ]
+    # for file_name in file_names:
+    #     _test_dataset(file_name=file_name)
+    # # _test_dataset()
+    # exit(0)
+    
     blensor_bin = "bin/Blensor-x64.AppImage"
     base_dir = 'datasets'
+    # blensor_bin = r'E:\binaries\blensor_win\blender.exe'
+    # base_dir = r'E:\datasets\p2s_pps\normals'
     num_processes = 7
     datasets = [
-        'abc', 'abc_extra_noisy', 'abc_noisefree',
+        # 'abc_train_normals', 
+        'abc', 
+        'abc_extra_noisy', 'abc_noisefree',
         'famous_original', 'famous_noisefree', 'famous_dense', 'famous_extra_noisy', 'famous_sparse',
         'thingi10k_scans_original', 'thingi10k_scans_dense', 'thingi10k_scans_sparse',
         'thingi10k_scans_extra_noisy', 'thingi10k_scans_noisefree'
-        'abc_train_normals', 
     ]
 
     for d in datasets:
