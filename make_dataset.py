@@ -374,7 +374,7 @@ def sample_blensor(base_dir, dataset_dir, blensor_bin, dir_in, dir_out_raw,
         xyz_npy_file = os.path.join(dir_abs_out, pcd_origin + '.npy')
         hits_per_scan_file = os.path.join(dir_abs_out_hits_per_scan, pcd_origin + '.npz')
 
-        if file_utils.call_necessary(pcd_files_abs, [xyz_npy_file, xyz_file, xyz_raw_npy_file, mesh_file, hits_per_scan_file]):
+        if file_utils.call_necessary(pcd_files_abs + [mesh_file], [xyz_npy_file, xyz_file, xyz_raw_npy_file, hits_per_scan_file]):
             call_params += [(pcd_files_abs, mesh_file, xyz_raw_npy_file, xyz_npy_file, xyz_file, obj_locations[fi], obj_rotations[fi], hits_per_scan_file, min_pts_size)]
 
     utils_mp.start_process_pool(_pcd_files_to_pts, call_params, num_processes)
@@ -794,7 +794,7 @@ def make_dataset(dataset_name: str, blensor_bin: str, base_dir: str, num_process
     clean_meshes(base_dir=base_dir, dataset_dir=dataset_dir,
                  dir_in_meshes='01_base_meshes_ply', dir_out='02_meshes_cleaned', num_processes=num_processes,
                  num_max_faces=None if only_for_evaluation else 50000,
-                 enforce_solid=True)
+                 enforce_solid=False if only_for_evaluation else True)  # wrong results for 5 famous objects?
 
     if filter_broken_inputs:
         clean_up_broken_inputs(base_dir=base_dir, dataset_dir=dataset_dir,
